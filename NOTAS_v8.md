@@ -37,3 +37,35 @@ Dos productos, **idénticos en lógica**, que solo difieren en el bloque `APP` /
 
 ## Regresión
 Las funciones núcleo de puntuación quedaron **byte a byte idénticas** a v7: `computeScores`, `earnedPtsFor`, `actualOutcome`, `winnerOf`, `lockInfo`, `matchStarted`, `officializeBatch`. Verificado además con pruebas funcionales (jsdom): acierto con marcador exacto = **+5**.
+
+---
+
+# v2.0.0 — Plataforma Integral (Centro de información del Mundial)
+
+Evolución **aditiva** sobre v8 (cero pérdida de datos). Misma quiniela + centro de información del Mundial, estadísticas, búsqueda, favoritos, auditoría y panel admin avanzado, todo en el mismo `index.html`.
+
+## Arquitectura
+- **R3 — Datos embebidos:** `window.WORLDCUP = {matches, groups, teams, squads, stadiums, playoffs}` + mapas de nombres ES↔EN, inyectados en el HTML (191 KB). Sin red, sin archivos auxiliares.
+- **Preprocesamiento único** al iniciar → `window.WORLDCUP_STATS` (`buildScheduleIndexes`, `buildTeamStats`, `buildGroupTables`, `buildStadiumStats`, `buildScorers`, `buildSquadStats`). Las pantallas solo consumen datos precalculados.
+- **Migración** (`schemaVersion 2`): respaldo previo en localStorage, migración aditiva, validación de integridad y **rollback** automático si falla. Campos nuevos (`logs`, `favorites`, `meta`) saneados en `mergeDefaults`.
+
+## Navegación
+`Inicio · Pronósticos · Tabla · Bracket · Mundial · Más` (el bracket de la quiniela quedó en su propia pestaña; **Mundial** es el centro de información).
+
+## Centro de información (pestaña Mundial)
+Sub-pestañas: **Calendario** (Hoy/Mañana/7 días/Todos + filtros equipo/grupo), **Equipos** (ficha con plantel + estadísticas de plantel: edad promedio, más joven/veterano, conteo por posición, clubes, ligas), **Grupos** (tablas PJ/PG/PE/PP/GF/GC/DG/PTS), **Estadios** (capacidad, partidos, goles, promedio, coordenadas), **Estadísticas** (centro estadístico: más goles, menos recibidos, victorias, vallas invictas, goleadores, estadios, partidos con más goles/mayor diferencia), **Buscar** (equipos/jugadores/estadios/grupos, instantáneo) y **★ Favoritos** (acceso rápido).
+- **Ficha de partido** enriquecida: grupo, fase, estadio, ciudad, capacidad, hora/zona, marcador + goleadores si está jugado (usa el resultado oficial de la quiniela si existe).
+
+## Boletín WhatsApp (100% local)
+Mantiene el contenido anterior y agrega: partidos del día, resultados recientes, próximos, líderes de grupo, goleadores y “Dato Mundial” (estadio más usado, partido con más goles, máximo goleador).
+
+## Auditoría y panel admin
+- Registro estructurado `S.logs` (usuario, evento, fecha/hora, página, dispositivo, navegador, versión, datos) para 20+ eventos (APP_OPEN/CLOSE, LOGIN/LOGOUT, PAGE_VIEW, MATCH/TEAM/GROUP/STADIUM/BRACKET/RANKING_VIEW, PREDICTION_CREATE/EDIT/DELETE, PODIUM_EDIT, USER_CREATE/EDIT, SETTINGS_EDIT, SYNC_START/END/FAIL, EXPORT, IMPORT, MIGRATION).
+- **Panel de control** admin: usuarios (total/activos/inactivos), pronósticos (completos/incompletos), Mundial (jugados/pendientes/en vivo), sistema (versión/eventos/errores) + feed de actividad.
+- Descargas CSV: reporte de apuestas, registro legible y **auditoría detallada**.
+
+## Restricciones (“informar, nunca influir”)
+Se eliminaron los indicadores de consenso/porcentajes de apuestas: “Tendencias del grupo” (%A/%B/%E) en la tarjeta en vivo, “⚡ N van por marcador exacto” y la sección de tendencias con % del boletín. Se conserva solo el conteo de **listos/pendientes** (actividad, no qué apostaron).
+
+## Verificación (jsdom)
+Builders correctos (goleador top: Messi 3; tablas de grupo; planteles), centro de info y fichas renderizan, auditoría registra eventos con dispositivo/navegador, boletín con secciones Mundial y **sin** porcentajes, favoritos, restricciones aplicadas. **Regresión de puntuación intacta: acierto + marcador exacto = +5.** Núcleo (`computeScores`/`earnedPtsFor`/`officializeBatch`) sin cambios.
