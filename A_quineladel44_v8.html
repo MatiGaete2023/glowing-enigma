@@ -572,6 +572,26 @@ const LSK = k => 'qm26_' + APP.id + '_' + k;
   }catch(e){}
 })();
 
+// ================== SEGURIDAD / PRIVACIDAD DE CLAVES ==================
+// Hash no reversible (nivel "entre amigos") para NO guardar PIN ni clave admin en texto plano.
+function hashSecret(s){
+  s = String(s==null?'':s);
+  const str = 'qm26|'+ROOM_DOC+'|salt-v2|'+s;
+  let h1=0x811c9dc5>>>0, h2=(0x9e3779b9)>>>0;
+  for(let i=0;i<str.length;i++){
+    const c=str.charCodeAt(i);
+    h1=(h1^c)>>>0; h1=(h1*16777619)>>>0;
+    h2=(h2 + c + ((h2<<6)>>>0) + ((h2<<16)>>>0))>>>0;
+  }
+  return 'h2:'+h1.toString(16).padStart(8,'0')+h2.toString(16).padStart(8,'0');
+}
+function isHashed(v){ return typeof v==='string' && v.indexOf('h2:')===0; }
+function verifySecret(input, stored){
+  if(stored==null || stored==='') return true;           // sin clave configurada
+  if(isHashed(stored)) return hashSecret(input)===stored; // comparación por hash
+  return String(input)===String(stored);                 // compat: clave legada en texto plano
+}
+
 // ---------------- DATOS DEL TORNEO ----------------
 const GROUPS = {
   A:['México','Sudáfrica','República de Corea','República Checa'],
@@ -881,6 +901,15 @@ setInterval(()=>{
     el.textContent='⏳ Cierra en '+(d>0?d+'d ':'')+String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
   });
 },1000);
+// Cierre automático: si un partido cruza su hora con la pantalla de pronósticos abierta,
+// se mueve solo a "cerrados" (sin tener que recargar).
+let _lastOpenSig=null;
+setInterval(()=>{
+  if(curPage!=='pronos' || !predUserId) return;
+  const sig=MATCHES.filter(m=>!predClosed(m)).map(m=>m.id).join(',');
+  if(_lastOpenSig!==null && sig!==_lastOpenSig){ renderPronos(); }
+  _lastOpenSig=sig;
+},15000);
 function mergeDefaults(data){
   const d = defaultState();
   const out = Object.assign(d, data||{});
@@ -973,6 +1002,7 @@ function initSync(){
         S = mergeDefaults(snap.data());
         saveLocal();
         setSync('online');
+        if(!window._secDone){ window._secDone=true; securityHardening(); } // hashea claves también en la nube
         refresh();
         if(!window._firstFetchDone && S.config.autoApi && (S.config.apiUrl||'').trim()){
           window._firstFetchDone=true;
@@ -1126,6 +1156,24 @@ function lockInfo(m){
   if(matchStarted(m.date)) return {locked:true, why:'Partido en curso'};
   if(phaseGateMsg(m.phase)) return {locked:true, why:'Fase anterior abierta'};
   return {locked:false};
+}
+// Hora de cierre real del partido (centinela 23:59 = 00:00 del día, UTC-4)
+function matchLockMs(m){
+  if(!m||!m.date) return Infinity;
+  if(String(m.date).includes('23:59')) return new Date(String(m.date).slice(0,10)+'T00:00:00-04:00').getTime();
+  return new Date(m.date).getTime();
+}
+// ¿El partido ya empezó / está en vivo / tiene resultado? (cierre estricto de apuestas)
+function matchInProgressOrPast(m){
+  return !!S.results[m.id] || Date.now()>=matchLockMs(m) || !!(S.live && S.live[m.id]);
+}
+// ¿La apuesta de este partido está cerrada para CUALQUIERA (incluido admin en la vista)?
+function predClosed(m){
+  if(matchInProgressOrPast(m)) return true;
+  const phaseLockKey=(m.phase==='final'||m.phase==='third')?'finales':m.phase;
+  if(S.locks[phaseLockKey]) return true;
+  if(phaseGateMsg(m.phase)) return true;
+  return false;
 }
 
 // ---------------- NAVEGACIÓN / RENDER ----------------
@@ -1454,7 +1502,7 @@ function openPodioEditor(){
   if(isPodioLocked() && !isAdmin) return alert('El podio está bloqueado (plazo vencido o por el administrador).');
   if(c.pin && pinOkFor!==myId && !isAdmin){
     const p=prompt('PIN de '+c.name+':');
-    if(p!==c.pin) return alert('PIN incorrecto.');
+    if(!verifySecret(p, c.pin)) return alert('PIN incorrecto.');
     pinOkFor=myId;
   }
   const opt=(sel)=>'<option value="">— elegir —</option>'+ALL_TEAMS.map(t=>`<option value="${esc(t)}" ${sel===t?'selected':''}>${esc(t)}</option>`).join('');
@@ -1513,21 +1561,23 @@ function addCompetitor(){
   if(isPodioLocked() && !isAdmin) return alert('La edición del podio está bloqueada (plazo vencido o administrador).');
   if(editId!==null){
     const c=compById(editId); if(!c) return cancelEdit();
-    if(c.pin && !isAdmin){ const p=prompt('PIN de '+c.name+':'); if(p!==c.pin) return alert('PIN incorrecto.'); }
-    mutate({
+    if(c.pin && !isAdmin){ const p=prompt('PIN de '+c.name+':'); if(!verifySecret(p, c.pin)) return alert('PIN incorrecto.'); }
+    const patch={
       ['competitors.'+editId+'.name']:name,
       ['competitors.'+editId+'.champ']:champ,
       ['competitors.'+editId+'.sub']:sub,
-      ['competitors.'+editId+'.third']:third,
-      ['competitors.'+editId+'.pin']:pin
-    });
+      ['competitors.'+editId+'.third']:third
+    };
+    // PIN: en blanco = mantener el actual; si ingresan uno nuevo, se guarda cifrado
+    if(pin) patch['competitors.'+editId+'.pin']=hashSecret(pin);
+    mutate(patch);
     pushHist('Se editó al competidor '+name);
-    audit('USER_EDIT',{user:name}); audit('PODIUM_EDIT',{user:name,champ,sub,third});
+    audit('USER_EDIT',{user:name, pinChanged:!!pin}); audit('PODIUM_EDIT',{user:name,champ,sub,third});
     cancelEdit();
   } else {
     if(comps().some(c=>c.name.toLowerCase()===name.toLowerCase())) return alert('Ese nombre ya existe.');
     const id='c'+Date.now();
-    mutate({['competitors.'+id]:{id,name,pin,champ,sub,third,preds:{}}});
+    mutate({['competitors.'+id]:{id,name,pin:pin?hashSecret(pin):'',champ,sub,third,preds:{}}});
     pushHist('Se registró el competidor '+name);
     pushFeed('👋', name+' se unió a la quiniela');
     audit('USER_CREATE',{user:name});
@@ -1544,7 +1594,9 @@ function startEdit(id){
   document.getElementById('c-champ').value=c.champ||'';
   document.getElementById('c-sub').value=c.sub||'';
   document.getElementById('c-third').value=c.third||'';
-  document.getElementById('c-pin').value=c.pin||'';
+  // Privacidad: el PIN nunca se muestra. En blanco = mantener el actual.
+  const pinEl=document.getElementById('c-pin'); pinEl.value='';
+  pinEl.placeholder = c.pin ? 'PIN (en blanco = mantener)' : 'PIN 4 dígitos (opcional)';
   document.getElementById('c-cancel').style.display='';
   go('pronos'); window.scrollTo(0,0);
 }
@@ -1562,7 +1614,7 @@ function selectPredUser(id){
   const c=compById(id);
   if(c.pin && pinOkFor!==id && !isAdmin){
     const p=prompt('PIN de '+c.name+':');
-    if(p!==c.pin){ alert('PIN incorrecto.'); document.getElementById('p-user').value=''; return; }
+    if(!verifySecret(p, c.pin)){ alert('PIN incorrecto.'); document.getElementById('p-user').value=''; return; }
     pinOkFor=id;
   }
   predUserId=id;
@@ -1649,9 +1701,10 @@ function renderPredMatches(){
   const div=document.getElementById('p-cont');
   const c=compById(predUserId);
   if(!c){ div.innerHTML=''; return; }
-  // Solo se muestran directamente los partidos donde el jugador PUEDE apostar.
-  // Los cerrados / próximas fases quedan en un menú colapsable (menos scroll a medida que avanza el torneo).
-  const openM=MATCHES.filter(m=>!lockInfo(m).locked && !phaseGateMsg(m.phase));
+  // Solo se muestran directamente los partidos ABIERTOS (no comenzados, sin resultado,
+  // fase habilitada). Los cerrados / pasados / próximas fases quedan en un menú colapsable.
+  // Se usa predClosed (no lockInfo) para que también el admin vea los pasados colapsados.
+  const openM=MATCHES.filter(m=>!predClosed(m));
   const closedM=MATCHES.filter(m=> openM.indexOf(m)<0 );
   const done=openM.filter(m=>(c.preds||{})[m.id]).length;
   let html=`<div class="prog-line"><b>${done}/${openM.length}</b> pronósticos abiertos completados <div class="pbar"><i style="width:${openM.length?Math.round(100*done/openM.length):0}%"></i></div></div>`;
@@ -1688,6 +1741,9 @@ function setPred(mid,val){
   if(li.locked) return alert('No se puede pronosticar: '+li.why+'.');
   const g=phaseGateMsg(m.phase);
   if(g && !isAdmin) return alert(g);
+  // Cierre estricto a la hora del partido (defensa adicional, también si está EN VIVO)
+  if(!isAdmin && matchInProgressOrPast(m)) return alert('⛔ Apuestas cerradas: el partido ya comenzó.');
+  if(isAdmin && matchInProgressOrPast(m)) audit('PREDICTION_POST_KICKOFF',{user:c.name,match:(m.label||mid),by:'admin'});
   const cur=(c.preds||{})[mid];
   const curObj = cur ? (typeof cur==='object'?cur:{outcome:cur,ga:undefined,gb:undefined}) : null;
   if(curObj && curObj.outcome===val){
@@ -1726,6 +1782,7 @@ function setScore(mid,side,rawVal){
   if(li.locked) return;
   const g=phaseGateMsg(m.phase);
   if(g && !isAdmin) return;
+  if(!isAdmin && matchInProgressOrPast(m)) return; // cierre estricto a la hora del partido
   // Leemos AMBOS marcadores desde los inputs (fuente de verdad mientras se edita),
   // así escribir un lado y luego el otro se combina aunque aún no se haya guardado.
   const elA=document.getElementById('ps_a_'+mid), elB=document.getElementById('ps_b_'+mid);
@@ -1811,7 +1868,7 @@ function renderTabla(){
         <span class="psub">🏆 ${esc(x.c.champ||'—')} · ${x.acc}% precisión · racha ${x.curStreak}</span>
         <button class="sm ghost" style="margin-top:4px;" onclick="viewBets('${esc(x.c.id)}')">👀 Apuestas</button>
         <button class="sm ghost" style="margin-top:4px;" onclick="viewStats('${esc(x.c.id)}')">📊 Stats</button>
-        ${isAdmin?`<button class="sm ghost" onclick="startEdit('${esc(x.c.id)}')">✏️</button><button class="sm danger" onclick="delCompetitor('${esc(x.c.id)}')">🗑</button>`:''}
+        ${isAdmin?`<button class="sm ghost" onclick="openPlayerAudit('${esc(x.c.id)}')">🔍</button><button class="sm ghost" onclick="startEdit('${esc(x.c.id)}')">✏️</button><button class="sm danger" onclick="delCompetitor('${esc(x.c.id)}')">🗑</button>`:''}
       </td>
       <td>${x.pts}</td>
       <td style="color:${x.bonus>0?'var(--hit)':'var(--muted)'};font-weight:700;">+${x.bonus}</td>
@@ -1986,11 +2043,15 @@ function renderMundial(){
 // ---------------- ADMIN ----------------
 function loginAdmin(){
   const p=document.getElementById('adm-pwd').value;
-  if(p===(S.config.adminPass||'mundial2026')){
+  const stored = S.config.adminPassHash || S.config.adminPass || 'mundial2026';
+  if(verifySecret(p, stored)){
     isAdmin=true;
     audit('LOGIN',{role:'admin'});
     document.getElementById('adm-pwd').value='';
-    if((S.config.adminPass||'mundial2026')==='mundial2026') alert('Modo admin activado.\n\n⚠️ Estás usando la contraseña por defecto. Cámbiala ahora desde "Cambiar contraseña".');
+    // migrar a hash si la clave estaba en texto plano
+    if(!S.config.adminPassHash){ mutate({'config.adminPassHash':hashSecret(p), 'config.adminPass':DEL}); }
+    const usingDefault = (S.config.adminPassHash||hashSecret(p))===DEFAULT_ADMIN_HASH || p==='mundial2026';
+    if(usingDefault) alert('Modo admin activado.\n\n⚠️ Estás usando la contraseña por defecto. Cámbiala ahora desde "Cambiar contraseña".');
     renderMas();
   } else alert('Contraseña incorrecta.');
 }
@@ -1999,10 +2060,10 @@ function changeAdminPass(){
   const np=prompt('Nueva contraseña de administrador (mín. 6 caracteres):');
   if(!np) return;
   if(np.length<6) return alert('Muy corta.');
-  mutate({'config.adminPass':np});
+  mutate({'config.adminPassHash':hashSecret(np), 'config.adminPass':DEL});
   pushHist('Admin cambió la contraseña');
   audit('SETTINGS_EDIT',{setting:'adminPass'});
-  alert('Contraseña actualizada. Nota: esta protección es de confianza entre amigos (la app corre en el navegador), no es seguridad de nivel bancario.');
+  alert('Contraseña actualizada (guardada cifrada). Nota: esta protección es de confianza entre amigos; la app corre en el navegador.');
 }
 function downloadBetsCSV() {
   const rows = [
@@ -2099,6 +2160,55 @@ function downloadAuditLog(){
   setTimeout(()=>URL.revokeObjectURL(url),5000);
 }
 // §Panel admin — dashboards (usuarios, pronósticos, actividad, mundial, sistema)
+// §Anti-trampa: análisis por jugador
+function playerLogs(name){ return (S.logs||[]).filter(l=>l.u===name); }
+function playerDevices(name){
+  const set={}; playerLogs(name).forEach(l=>{ const d=(l.device||'?')+' · '+(l.browser||'?'); if(l.device||l.browser) set[d]=1; });
+  return Object.keys(set);
+}
+function playerLateBets(c){
+  const out=[];
+  MATCHES.forEach(m=>{
+    const p=(c.preds||{})[m.id];
+    if(p && typeof p==='object' && p.t){
+      const tt=new Date(p.t).getTime();
+      if(!isNaN(tt) && tt > matchLockMs(m)+60000) out.push({m, t:p.t});
+    }
+  });
+  return out;
+}
+function cheatFlags(c){
+  const flags=[];
+  const late=playerLateBets(c);
+  if(late.length) flags.push({msg:late.length+' apuesta(s) con marca de tiempo POSTERIOR al inicio del partido'});
+  const devs=playerDevices(c.name);
+  if(devs.length>=3) flags.push({msg:'Actividad desde '+devs.length+' dispositivos/navegadores distintos'});
+  const postKick=playerLogs(c.name).filter(l=>l.ev==='PREDICTION_POST_KICKOFF').length;
+  if(postKick) flags.push({msg:postKick+' edición(es) (admin) tras el inicio del partido'});
+  return {flags, late, devs};
+}
+function openPlayerAudit(id){
+  const c=compById(id); if(!c) return;
+  const logs=playerLogs(c.name);
+  const cf=cheatFlags(c);
+  const flagsHtml = cf.flags.length
+    ? '<div class="warn-pend" style="display:block;">⚠️ <b>Señales a revisar</b><ul style="margin:6px 0 0;padding-left:18px;">'+cf.flags.map(f=>`<li>${esc(f.msg)}</li>`).join('')+'</ul></div>'
+    : '<div class="card" style="border-color:#10B981;color:#059669;font-weight:700;">✅ Sin señales de irregularidad detectadas.</div>';
+  const lateHtml = cf.late.length ? '<h3>Apuestas modificadas tras el inicio</h3>'+cf.late.map(x=>`<div class="log">${esc(x.m.label||x.m.id)} — guardada ${esc(new Date(x.t).toLocaleString('es-CL'))}</div>`).join('') : '';
+  const devHtml = '<h3 style="margin-top:12px;">Dispositivos usados</h3>'+(cf.devs.length?cf.devs.map(d=>`<div class="log">${esc(d)}</div>`).join(''):'<p class="mut">—</p>');
+  const tl = logs.slice(0,150).map(l=>`<div class="log"><b>[${esc(l.t)}]</b> ${esc(l.ev)}${l.data?(' · '+esc(JSON.stringify(l.data))):''} <span class="mut">· ${esc(l.device||'')}/${esc(l.browser||'')}</span></div>`).join('')||'<p class="mut">Sin eventos registrados.</p>';
+  openModal(`<h3 style="margin-top:0;">🔍 Auditoría — ${esc(c.name)}</h3>
+    ${flagsHtml}
+    <div class="dash-stats" style="margin:8px 0;">
+      <div class="stat"><div class="v">${logs.length}</div><div class="l">Eventos</div></div>
+      <div class="stat"><div class="v">${cf.devs.length}</div><div class="l">Dispositivos</div></div>
+      <div class="stat"><div class="v" style="color:${cf.late.length?'var(--miss)':'var(--ink)'};">${cf.late.length}</div><div class="l">Apuestas tardías</div></div>
+    </div>
+    ${lateHtml}${devHtml}
+    <h3 style="margin-top:12px;">Línea de tiempo (${logs.length})</h3>
+    <div style="max-height:300px;overflow-y:auto;">${tl}</div>`);
+  audit('AUDIT_VIEW',{target:c.name});
+}
 function adminDashboardHtml(){
   const cs=comps();
   const total=cs.length;
@@ -2135,6 +2245,13 @@ function adminDashboardHtml(){
     <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 6px;">⚙️ Sistema</div>
     <div class="dash-stats">${stat('v'+ver,'Versión')}${stat((S.logs||[]).length,'Eventos log')}${stat(syncErr,'Errores sync', syncErr?'var(--miss)':'')}</div>
     <p class="mut" style="margin:8px 0 0;">Última actividad: ${esc(ultima)} · Esquema v${(S.meta&&S.meta.schemaVersion)||2} · Mundial v${(S.meta&&S.meta.worldcupVersion)||1}</p>
+    <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 6px;">👤 Jugadores (clic para auditar)</div>
+    ${cs.slice().sort((a,b)=>a.name.localeCompare(b.name,'es')).map(c=>{
+      const cf=cheatFlags(c), warn=cf.flags.length;
+      return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);font-size:12.5px;">
+        <span>${warn?'⚠️ ':''}<b>${esc(c.name)}</b> <span class="mut">· ${playerLogs(c.name).length} ev · ${cf.devs.length} disp${cf.late.length?(' · <span style="color:var(--miss);font-weight:800;">'+cf.late.length+' tardías</span>'):''}</span></span>
+        <button class="sm ghost" onclick="openPlayerAudit('${esc(c.id)}')">🔍 Auditar</button></div>`;
+    }).join('')||'<p class="mut">Sin jugadores.</p>'}
     <div style="margin-top:10px;"><div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;margin-bottom:4px;">📡 Actividad reciente</div>
     ${(S.logs||[]).slice(0,8).map(l=>`<div class="log"><b>[${esc(l.t)}]</b> ${esc(l.u)} · ${esc(l.ev)}${l.data&&l.data.page?(' ('+esc(l.data.page)+')'):''}</div>`).join('')||'<p class="mut">Sin eventos.</p>'}</div>
   </div>`;
@@ -2576,6 +2693,7 @@ function importData(e){
       S=mergeDefaults(p);
       saveLocal();
       if(db) db.doc(ROOM_DOC).set(S).catch(err=>setSync('error',err.message));
+      window._secDone=false; securityHardening(); // cifrar claves si el respaldo trae texto plano
       pushHist('Se importó un respaldo JSON');
       audit('IMPORT',null);
       refresh();
@@ -2731,6 +2849,21 @@ function runMigration(){
     console.error('Rollback de migración:',err);
   }
 }
+// §Privacidad: convierte a hash cualquier PIN/clave admin guardada en texto plano y elimina el texto plano.
+// Es idempotente; se ejecuta localmente y también tras la primera sync para persistir en la nube.
+function securityHardening(){
+  const patch={};
+  Object.keys(S.competitors||{}).forEach(id=>{
+    const c=S.competitors[id];
+    if(c && c.pin && !isHashed(c.pin)) patch['competitors.'+id+'.pin']=hashSecret(c.pin);
+  });
+  if(S.config){
+    if(!S.config.adminPassHash) patch['config.adminPassHash']=hashSecret(S.config.adminPass||'mundial2026');
+    if(typeof S.config.adminPass!=='undefined') patch['config.adminPass']=DEL; // quitar texto plano
+  }
+  if(Object.keys(patch).length){ mutate(patch); }
+}
+const DEFAULT_ADMIN_HASH = hashSecret('mundial2026');
 
 // §Auditoría estructurada
 function deviceInfo(){
@@ -3075,6 +3208,7 @@ applyBranding();
 loadLocal();
 runMigration();          // §migración con respaldo + validación + rollback
 buildWorldcupStats();    // §preprocesamiento único → window.WORLDCUP_STATS
+securityHardening();     // §privacidad: hashea PIN/clave admin en texto plano (local)
 audit('APP_OPEN', {appVersion:(S.meta&&S.meta.appVersion)||'2.0.0'});
 window.addEventListener('pagehide', ()=>{ try{ audit('APP_CLOSE',null); flushPendingNow(); }catch(e){} });
 resolveTeams();
