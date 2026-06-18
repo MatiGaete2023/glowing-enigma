@@ -182,6 +182,9 @@ td{padding:10px 6px;text-align:center;font-size:13px;border-bottom:1px solid var
 .gcard h4{margin:0 0 8px;color:var(--pitch);text-align:center;font-size:13px;}
 .gcard table{font-size:12px;} .gcard td{padding:6px 4px;}
 .q1{background:#DCFCE7;} .q3{background:#FEF9C3;}
+body.dark .q1{background:rgba(22,163,74,.28);color:var(--ink);}
+body.dark .q3{background:rgba(245,194,66,.22);color:var(--ink);}
+body.dark .q1 td,body.dark .q3 td{color:var(--ink);}
 
 /* MODAL */
 .ovl{display:none;position:fixed;inset:0;background:rgba(9,25,15,.55);z-index:99;justify-content:center;align-items:center;padding:14px;}
@@ -1136,6 +1139,7 @@ function go(pg){
     if(pg==='mundial') audit('BRACKET_VIEW',null);
     else if(pg==='tabla') audit('RANKING_VIEW',null);
   }catch(e){}
+  const mainEl=document.querySelector('.main'); if(mainEl) mainEl.scrollTop=0; // reset al cambiar de pestaña
   refresh();
 }
 // Devuelve el marcador en vivo SOLO si es plausible ahora (evita mostrar partidos de otro día
@@ -1154,6 +1158,8 @@ function updateLivePill(){
   const lbl=document.getElementById('live-pill-n'); if(lbl) lbl.textContent=n+' EN VIVO';
 }
 function refresh(){
+  const mainEl=document.querySelector('.main');
+  const sc = mainEl ? mainEl.scrollTop : 0;   // preservar posición para no "perder de vista" la apuesta
   resolveTeams();
   updateLivePill();
   if(curPage==='inicio') renderInicio();
@@ -1162,6 +1168,7 @@ function refresh(){
   if(curPage==='mundial') renderMundial();
   if(curPage==='info') renderInfo();
   if(curPage==='mas') renderMas();
+  if(mainEl && sc>0) mainEl.scrollTop = sc;
 }
 
 // ---------------- INICIO (DASHBOARD) ----------------
@@ -1576,63 +1583,49 @@ function renderPronos(){
   else if(cur && compById(cur)){ sel.value=cur; }
   else document.getElementById('p-cont').innerHTML='';
 }
-function renderPredMatches(){
-  const div=document.getElementById('p-cont');
-  const c=compById(predUserId);
-  if(!c){ div.innerHTML=''; return; }
-  const open=MATCHES.filter(m=>!lockInfo(m).locked && !phaseGateMsg(m.phase));
-  const done=open.filter(m=>(c.preds||{})[m.id]).length;
-  let html=`<div class="prog-line"><b>${done}/${open.length}</b> pronósticos abiertos completados <div class="pbar"><i style="width:${open.length?Math.round(100*done/open.length):0}%"></i></div></div>`, curPh='';
-  MATCHES.forEach(m=>{
-    if(curPh!==m.phase){
-      html+=`<div class="phase-title">${esc(PHASE_NAMES[m.phase])}</div>`;
-      const g=phaseGateMsg(m.phase);
-      if(g && !isAdmin) html+=`<p style="text-align:center;font-size:11px;color:var(--miss);margin:2px 0 8px;">${esc(g)}</p>`;
-      curPh=m.phase;
-    }
-    const t=teamsOf(m.id);
-    const pred=(c.preds||{})[m.id]||null;
-    const pOutcome = pred ? (typeof pred==='object'?pred.outcome:pred) : null;
-    const pGa = pred && typeof pred==='object' ? pred.ga : undefined;
-    const pGb = pred && typeof pred==='object' ? pred.gb : undefined;
-    const li=lockInfo(m);
-    const act=actualOutcome(m);
-    const r=S.results[m.id];
-    // puntaje display
-    let ptsTag='';
-    if(act!==null && pOutcome){
-      if(pOutcome===act){
-        let ep=3;
-        if(r && pGa!==undefined && pGb!==undefined){
-          if(pGa===r.a && pGb===r.b) ep=5;
-          else if((pGa-pGb)===(r.a-r.b)) ep=4;
-        }
-        const tc=ep>=5?'hit3':ep===4?'hit2':'hit3';
-        ptsTag=`<span class="pts-tag ${tc}">✅ +${ep}</span>`;
-      } else {
-        ptsTag='<span class="pts-tag miss">❌ 0</span>';
+function predRow(m, c){
+  const t=teamsOf(m.id);
+  const pred=(c.preds||{})[m.id]||null;
+  const pOutcome = pred ? (typeof pred==='object'?pred.outcome:pred) : null;
+  const pGa = pred && typeof pred==='object' ? pred.ga : undefined;
+  const pGb = pred && typeof pred==='object' ? pred.gb : undefined;
+  const li=lockInfo(m);
+  const act=actualOutcome(m);
+  const r=S.results[m.id];
+  let ptsTag='';
+  if(act!==null && pOutcome){
+    if(pOutcome===act){
+      let ep=3;
+      if(r && pGa!==undefined && pGb!==undefined){
+        if(pGa===r.a && pGb===r.b) ep=5;
+        else if((pGa-pGb)===(r.a-r.b)) ep=4;
       }
+      const tc=ep>=5?'hit3':ep===4?'hit2':'hit3';
+      ptsTag=`<span class="pts-tag ${tc}">✅ +${ep}</span>`;
+    } else {
+      ptsTag='<span class="pts-tag miss">❌ 0</span>';
     }
-    const cls=v=>{
-      let k='popt';
-      if(pOutcome===v) k+= act===null?' sel':(act===v?' hit':' miss');
-      if(li.locked) k+=' dis';
-      return k;
-    };
-    const disAttr = li.locked ? 'disabled' : '';
-    const draw = m.phase==='grupos' ? `<span class="${cls('E')}" onclick="setPred('${m.id}','E')">Empate</span>` : '';
-    const gaVal = pGa!==undefined ? pGa : '';
-    const gbVal = pGb!==undefined ? pGb : '';
-    const stIco = pOutcome ? '🟢' : (li.locked ? '🔴' : '🟡');
-    const lvp = !r ? liveOf(m.id) : null;
-    let liveTag='';
-    if(lvp){
-      const projP = pOutcome ? earnedPtsFor(pred, m, {a:lvp.a,b:lvp.b,winner:null}) : 0;
-      liveTag = ` <span style="color:var(--accent);font-weight:900;">🔴 ${lvp.a}-${lvp.b}${lvp.min?` (${lvp.min}')`:''}</span>`+
-        (pOutcome?` <span class="pts-tag ${projP>0?'hit1':'miss'}" title="Proyectado, no oficial">~+${projP}</span>`:'');
-    }
-    const cdSpan = !li.locked && !String(m.date).includes('23:59') ? ` <span data-cd="${esc(m.date)}" style="color:var(--pitch);font-weight:800;"></span>` : '';
-    html+=`<div class="mrow">
+  }
+  const cls=v=>{
+    let k='popt';
+    if(pOutcome===v) k+= act===null?' sel':(act===v?' hit':' miss');
+    if(li.locked) k+=' dis';
+    return k;
+  };
+  const disAttr = li.locked ? 'disabled' : '';
+  const draw = m.phase==='grupos' ? `<span class="${cls('E')}" onclick="setPred('${m.id}','E')">Empate</span>` : '';
+  const gaVal = pGa!==undefined ? pGa : '';
+  const gbVal = pGb!==undefined ? pGb : '';
+  const stIco = pOutcome ? '🟢' : (li.locked ? '🔴' : '🟡');
+  const lvp = !r ? liveOf(m.id) : null;
+  let liveTag='';
+  if(lvp){
+    const projP = pOutcome ? earnedPtsFor(pred, m, {a:lvp.a,b:lvp.b,winner:null}) : 0;
+    liveTag = ` <span style="color:var(--accent);font-weight:900;">🔴 ${lvp.a}-${lvp.b}${lvp.min?` (${lvp.min}')`:''}</span>`+
+      (pOutcome?` <span class="pts-tag ${projP>0?'hit1':'miss'}" title="Proyectado, no oficial">~+${projP}</span>`:'');
+  }
+  const cdSpan = !li.locked && !String(m.date).includes('23:59') ? ` <span data-cd="${esc(m.date)}" style="color:var(--pitch);font-weight:800;"></span>` : '';
+  return `<div class="mrow">
       <div class="mdate">${stIco} 📅 ${esc(dateStr(m.date))} ${li.locked?`<span class="lk">· ${esc(li.why)}</span>`:''}${cdSpan}${liveTag} ${ptsTag}</div>
       <div class="mteams">
         <div class="tname r">${esc(t.teamA)} ${flag(t.teamA)}</div>
@@ -1651,7 +1644,41 @@ function renderPredMatches(){
         <span style="font-size:10px;color:var(--muted);">(opc. · +2 exacto · +1 dif)</span>
       </div>
     </div>`;
-  });
+}
+function renderPredMatches(){
+  const div=document.getElementById('p-cont');
+  const c=compById(predUserId);
+  if(!c){ div.innerHTML=''; return; }
+  // Solo se muestran directamente los partidos donde el jugador PUEDE apostar.
+  // Los cerrados / próximas fases quedan en un menú colapsable (menos scroll a medida que avanza el torneo).
+  const openM=MATCHES.filter(m=>!lockInfo(m).locked && !phaseGateMsg(m.phase));
+  const closedM=MATCHES.filter(m=> openM.indexOf(m)<0 );
+  const done=openM.filter(m=>(c.preds||{})[m.id]).length;
+  let html=`<div class="prog-line"><b>${done}/${openM.length}</b> pronósticos abiertos completados <div class="pbar"><i style="width:${openM.length?Math.round(100*done/openM.length):0}%"></i></div></div>`;
+  let curPh='';
+  if(openM.length){
+    openM.forEach(m=>{
+      if(curPh!==m.phase){ html+=`<div class="phase-title">${esc(PHASE_NAMES[m.phase])}</div>`; curPh=m.phase; }
+      html+=predRow(m,c);
+    });
+  } else {
+    html+='<p class="mut" style="text-align:center;padding:14px;">No hay partidos abiertos para apostar en este momento. Revisa los cerrados abajo o vuelve más tarde. 👇</p>';
+  }
+  if(closedM.length){
+    let chtml='', cp='';
+    closedM.forEach(m=>{
+      if(cp!==m.phase){
+        chtml+=`<div class="phase-title">${esc(PHASE_NAMES[m.phase])}</div>`;
+        const g=phaseGateMsg(m.phase);
+        if(g && !isAdmin) chtml+=`<p style="text-align:center;font-size:11px;color:var(--miss);margin:2px 0 8px;">${esc(g)}</p>`;
+        cp=m.phase;
+      }
+      chtml+=predRow(m,c);
+    });
+    html+=`<details style="margin-top:14px;border:1px solid var(--line);border-radius:12px;background:var(--card);">
+      <summary style="padding:11px 14px;font-weight:800;font-size:13px;cursor:pointer;color:var(--muted);">🔒 Partidos cerrados y próximas fases (${closedM.length}) — toca para ver</summary>
+      <div style="padding:0 12px 8px;">${chtml}</div></details>`;
+  }
   div.innerHTML=html;
 }
 function setPred(mid,val){
@@ -1674,6 +1701,14 @@ function setPred(mid,val){
     const elA=document.getElementById('ps_a_'+mid), elB=document.getElementById('ps_b_'+mid);
     if(elA && elA.value!=='' && !isNaN(parseInt(elA.value,10)) && parseInt(elA.value,10)>=0) ga=parseInt(elA.value,10);
     if(elB && elB.value!=='' && !isNaN(parseInt(elB.value,10)) && parseInt(elB.value,10)>=0) gb=parseInt(elB.value,10);
+    // Coherencia: si el marcador contradice la opción elegida, se descarta el marcador
+    //  (p. ej. eliges "Empate" pero tenías 2-0). El usuario reingresa el marcador acorde.
+    if(ga!==undefined && gb!==undefined){
+      let scoreOutcome = null;
+      if(m.phase==='grupos') scoreOutcome = ga>gb?'A':(gb>ga?'B':'E');
+      else if(ga!==gb) scoreOutcome = ga>gb?'A':'B';
+      if(scoreOutcome && scoreOutcome!==val){ ga=undefined; gb=undefined; toast('Marcador descartado por no coincidir con tu elección'); }
+    }
     const newPred = {outcome:val, t:new Date().toISOString()};
     if(ga!==undefined) newPred.ga=ga;
     if(gb!==undefined) newPred.gb=gb;
@@ -1701,13 +1736,15 @@ function setScore(mid,side,rawVal){
   const cur=(c.preds||{})[mid];
   const hadOutcomeBefore = !!(cur && (typeof cur==='object'?cur.outcome:cur));
   let obj = cur ? (typeof cur==='object' ? {...cur} : {outcome:cur}) : {};
+  const prevOutcome = obj.outcome;
   if(pa===undefined || isNaN(pa) || pa<0) delete obj.ga; else obj.ga=pa;
   if(pb===undefined || isNaN(pb) || pb<0) delete obj.gb; else obj.gb=pb;
-  // 🔑 Si el usuario escribe el marcador SIN haber tocado "Gana/Empate",
-  //    deducimos el resultado del propio marcador para que la apuesta NUNCA se pierda.
-  if(!obj.outcome && obj.ga!==undefined && obj.gb!==undefined){
+  // 🔑 El MARCADOR MANDA: la opción gana/empate/pierde se ajusta automáticamente al marcador,
+  //    de modo que nunca queden incoherentes (p. ej. "empate" con 2-0).
+  if(obj.ga!==undefined && obj.gb!==undefined){
     if(m.phase==='grupos') obj.outcome = obj.ga>obj.gb?'A':(obj.gb>obj.ga?'B':'E');
     else if(obj.ga!==obj.gb) obj.outcome = obj.ga>obj.gb?'A':'B';
+    // En eliminatoria con marcador empatado no se puede deducir quién avanza → se mantiene la opción elegida.
   }
   // Objeto vacío (borró todo): elimina la apuesta
   if(!obj.outcome && obj.ga===undefined && obj.gb===undefined){
@@ -1716,27 +1753,24 @@ function setScore(mid,side,rawVal){
   }
   // Sin resultado derivable todavía:
   if(!obj.outcome){
-    // Empate en eliminatoria (ambos goles iguales): hay que elegir quién avanza
     if(obj.ga!==undefined && obj.gb!==undefined){
       clearTimeout(window._scToast);
       window._scToast=setTimeout(()=>toast('Toca "Gana" para indicar quién avanza y guardar'),400);
     }
-    // Marcador a medio escribir (solo un lado): esperar el otro número, sin molestar
     return;
   }
   obj.t = new Date().toISOString();
-  // Si acabamos de DERIVAR el resultado (antes no había), re-renderizamos ya para
-  //   resaltar el botón y evitar toques accidentales. Si ya existía, modo silencioso
-  //   (quiet) para no robar el foco mientras se escribe el marcador.
-  const justDerived = !hadOutcomeBefore;
-  mutate({['competitors.'+predUserId+'.preds.'+mid]: obj}, {quiet: !justDerived});
+  // Si el resultado (gana/empate/pierde) CAMBIÓ por el marcador, re-renderizamos para resaltar
+  //   el botón correcto; si solo cambió el marcador, modo silencioso para no robar el foco.
+  const outcomeChanged = obj.outcome !== prevOutcome;
+  mutate({['competitors.'+predUserId+'.preds.'+mid]: obj}, {quiet: !outcomeChanged});
   clearTimeout(window._scToast);
   window._scToast=setTimeout(()=>{
     toast('✓ Marcador guardado');
     playSound('save');
     logAudit(c.name+' guardó marcador '+(m.label||mid)+': '+(obj.ga??'–')+'-'+(obj.gb??'–'));
     audit(hadOutcomeBefore?'PREDICTION_EDIT':'PREDICTION_CREATE',{user:c.name,match:(m.label||mid),score:(obj.ga??'-')+'-'+(obj.gb??'-')});
-    if(curPage==='pronos' && !justDerived) refresh(); // refresco diferido si fue silencioso
+    if(curPage==='pronos' && !outcomeChanged) refresh(); // refresco diferido si fue silencioso
   },800);
 }
 
