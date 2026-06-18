@@ -539,6 +539,18 @@ const APP = {
   defaultTheme:'dark'         // 'light' | 'dark' → tema por defecto si el usuario no eligió aún
 };
 
+// Claves de almacenamiento local con espacio de nombres por app (evita que ambas
+// quinielas compartan estado/usuario si llegaran a servirse desde el mismo origen).
+const LSK = k => 'qm26_' + APP.id + '_' + k;
+(function migrateLS(){ // migración única desde las claves antiguas sin namespace (sin pérdida)
+  try{
+    ['state','me','theme','sound','onb','lastfetch'].forEach(k=>{
+      const nk=LSK(k), ok='qm26_'+k, v=localStorage.getItem(ok);
+      if(v!==null && localStorage.getItem(nk)===null) localStorage.setItem(nk, v);
+    });
+  }catch(e){}
+})();
+
 // ---------------- DATOS DEL TORNEO ----------------
 const GROUPS = {
   A:['México','Sudáfrica','República de Corea','República Checa'],
@@ -686,7 +698,7 @@ function defaultState(){
 let S = defaultState();
 let isAdmin = false;
 let curPage = 'inicio';
-let myId = localStorage.getItem('qm26_me') || '';
+let myId = localStorage.getItem(LSK('me')) || '';
 let predUserId = '';
 let editId = null;
 let standings = {};   // cache de grupos
@@ -749,7 +761,7 @@ function applyBranding(){
 
 // 🌓 Tema y 🔊 Efectos de Sonido (Web Audio API)
 // Cada app tiene un tema por defecto distinto (una clara, otra oscura) para no confundirlas.
-const _storedTheme = localStorage.getItem('qm26_theme');
+const _storedTheme = localStorage.getItem(LSK('theme'));
 let isDarkMode = _storedTheme ? (_storedTheme === 'dark') : (APP.defaultTheme === 'dark');
 if (isDarkMode) {
   document.body.classList.add('dark');
@@ -763,14 +775,14 @@ function updateThemeButton() {
 function toggleTheme() {
   isDarkMode = !isDarkMode;
   document.body.classList.toggle('dark', isDarkMode);
-  localStorage.setItem('qm26_theme', isDarkMode ? 'dark' : 'light');
+  localStorage.setItem(LSK('theme'), isDarkMode ? 'dark' : 'light');
   updateThemeButton();
   playSound('save');
 }
 
 const AudioContext = window.AudioContext || window.webkitAudioContext;
 let audioCtx = null;
-let soundEnabled = localStorage.getItem('qm26_sound') !== '0';
+let soundEnabled = localStorage.getItem(LSK('sound')) !== '0';
 
 function updateSoundButton() {
   const btn = document.getElementById('sound-btn');
@@ -779,7 +791,7 @@ function updateSoundButton() {
 
 function toggleSound() {
   soundEnabled = !soundEnabled;
-  localStorage.setItem('qm26_sound', soundEnabled ? '1' : '0');
+  localStorage.setItem(LSK('sound'), soundEnabled ? '1' : '0');
   updateSoundButton();
   if (soundEnabled) {
     playSound('success');
@@ -857,8 +869,8 @@ function mergeDefaults(data){
 
 // ---------------- PERSISTENCIA + SYNC ----------------
 let db=null, syncState='local'; // local | connecting | online | error
-function saveLocal(){ try{ localStorage.setItem('qm26_state', JSON.stringify(S)); }catch(e){} }
-function loadLocal(){ try{ const d=localStorage.getItem('qm26_state'); if(d) S=mergeDefaults(JSON.parse(d)); }catch(e){ S=defaultState(); } }
+function saveLocal(){ try{ localStorage.setItem(LSK('state'), JSON.stringify(S)); }catch(e){} }
+function loadLocal(){ try{ const d=localStorage.getItem(LSK('state')); if(d) S=mergeDefaults(JSON.parse(d)); }catch(e){ S=defaultState(); } }
 
 // patch: objeto plano {ruta.con.puntos: valor | DEL}
 const DEL = '__DELETE__';
@@ -1163,12 +1175,12 @@ function getMatchPredictionsComment(mid) {
 }
 
 function setMe(id){
-  myId=id; localStorage.setItem('qm26_me', id);
+  myId=id; localStorage.setItem(LSK('me'), id);
   // Auditoría: registrar ingreso (una vez por sesión y por jugador)
   const c=compById(id);
   if(c){
     try{
-      const key='qm26_entered_'+id;
+      const key=LSK('entered_')+id;
       if(sessionStorage.getItem(key)!=='1'){
         sessionStorage.setItem(key,'1');
         logAudit(c.name+' ingresó a la app');
@@ -1389,7 +1401,7 @@ function checkNextMatchAlert(){
   const hasScore = pred && typeof pred==='object' && pred.ga!==undefined && pred.gb!==undefined;
   if(outcome && hasScore) return; // ya está completo
   // mostrar máximo una vez por partido y por sesión (no molestar)
-  try{ if(sessionStorage.getItem('qm26_alert_'+m.id)==='1') return; sessionStorage.setItem('qm26_alert_'+m.id,'1'); }catch(e){}
+  try{ if(sessionStorage.getItem(LSK('alert_')+m.id)==='1') return; sessionStorage.setItem(LSK('alert_')+m.id,'1'); }catch(e){}
   const t=teamsOf(m.id);
   const falta = !outcome ? 'Aún no eliges quién gana.' : 'Elegiste ganador pero te falta el marcador (para optar a +2/+1).';
   setTimeout(()=>{
@@ -1898,10 +1910,11 @@ function renderMundial(){
     if(c){
       const p=(c.preds||{})[m.id];
       if(p){
+        const pOut = typeof p==='object' ? p.outcome : p;
         const act=actualOutcome(m);
-        const mark=act===null?'○':(act===p?'✔':'✖');
-        const mc=act===null?'pend':(act===p?'hit':'miss');
-        pk=`<span class="pk ${mc}">${mark} ${esc(c.name)}: gana ${p==='A'?esc(t.teamA):esc(t.teamB)}</span>`;
+        const mark=act===null?'○':(act===pOut?'✔':'✖');
+        const mc=act===null?'pend':(act===pOut?'hit':'miss');
+        pk=`<span class="pk ${mc}">${mark} ${esc(c.name)}: gana ${pOut==='A'?esc(t.teamA):esc(t.teamB)}</span>`;
       } else pk=`<span class="pk pend">○ ${esc(c.name)}: sin apuesta</span>`;
     }
     bk+=`<div class="bk"><b>${flag(t.teamA)} ${esc(t.teamA)}</b><span class="sc">${sc}</span><b>${flag(t.teamB)} ${esc(t.teamB)}</b>${pk}</div>`;
@@ -2244,7 +2257,7 @@ function applyAndAnnounce(patch, prevRanks, m, r){
     pushHistLocal(`Admin guardó ${t.teamA} ${r.a}-${r.b} ${t.teamB}`);
     // feed: aciertos
     const act=actualOutcome(m);
-    const winners = comps().filter(c=>(c.preds||{})[m.id]===act).map(c=>c.name);
+    const winners = comps().filter(c=>{ const p=(c.preds||{})[m.id]; const o=(p&&typeof p==='object')?p.outcome:p; return o===act; }).map(c=>c.name);
     if(winners.length) pushFeedLocal('🎯', winners.join(', ')+(winners.length>1?' acertaron':' acertó')+` ${t.teamA} vs ${t.teamB} (+3)`);
     // feed: cambios de posición relevantes
     const after=computeScores();
@@ -2417,7 +2430,7 @@ async function fetchApiNow(manual){
     const n = doOfficialize ? officializeBatch(fin, 'API') : 0;
     const pend = doOfficialize ? 0 : fin.filter(d=>!S.results[d.id]).length;
     lastApiMsg='✅ '+nowStr()+' · '+liv.length+' en vivo · '+n+' oficializado(s)'+(pend?' · '+pend+' final(es) por confirmar':'');
-    try{localStorage.setItem('qm26_lastfetch', String(Date.now()));}catch(e){}
+    try{localStorage.setItem(LSK('lastfetch'), String(Date.now()));}catch(e){}
     if(manual) toast('🔄 Sincronizado: '+n+' oficial(es) · '+liv.length+' en vivo'+(pend?' · '+pend+' por confirmar':''));
     refresh();
   }catch(err){
@@ -2433,7 +2446,7 @@ function anyLiveWindow(){ return MATCHES.some(m=>!S.results[m.id] && plausibleLi
 //  · En vivo: ~cada 75 s   · Fuera de ventana con auto: cada 6 h   · Refresco suave: 30 min
 setInterval(()=>{
   if(!apiConfigured()) return;
-  const gap = Date.now() - parseInt(localStorage.getItem('qm26_lastfetch')||'0',10);
+  const gap = Date.now() - parseInt(localStorage.getItem(LSK('lastfetch'))||'0',10);
   if(anyLiveWindow()){ if(gap>75000) fetchApiNow(false); }
   else if(S.config.autoApi){ if(gap>6*36e5) fetchApiNow(false); }
   else if(gap>30*60000) fetchApiNow(false);
@@ -2441,7 +2454,7 @@ setInterval(()=>{
 // Al volver a la app, refresca si los datos están algo viejos
 function maybeFetchOnFocus(){
   if(!apiConfigured()) return;
-  const gap=Date.now()-parseInt(localStorage.getItem('qm26_lastfetch')||'0',10);
+  const gap=Date.now()-parseInt(localStorage.getItem(LSK('lastfetch'))||'0',10);
   if(gap > (anyLiveWindow()?60000:240000)) fetchApiNow(false);
 }
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') maybeFetchOnFocus(); });
@@ -2501,7 +2514,7 @@ function renderOnb(){
   document.getElementById('onb-next').textContent = onbI===ONB.length-1?'¡A jugar! ⚽':'Siguiente →';
 }
 function nextOnb(){ if(onbI>=ONB.length-1) return endOnb(); onbI++; renderOnb(); }
-function endOnb(){ document.getElementById('onb').classList.remove('active'); try{localStorage.setItem('qm26_onb','1');}catch(e){} }
+function endOnb(){ document.getElementById('onb').classList.remove('active'); try{localStorage.setItem(LSK('onb'),'1');}catch(e){} }
 
 // ---------------- INIT ----------------
 applyBranding();
@@ -2514,7 +2527,7 @@ initSync();
 updateThemeButton();
 updateSoundButton();
 let _onbShown=false;
-try{ if(!localStorage.getItem('qm26_onb')){ showOnb(); _onbShown=true; } }catch(e){}
+try{ if(!localStorage.getItem(LSK('onb'))){ showOnb(); _onbShown=true; } }catch(e){}
 // Aviso de próximo partido sin pronóstico (si ya hay jugador elegido y no es primer uso)
 if(!_onbShown && myId && compById(myId)) setTimeout(checkNextMatchAlert, 1200);
 </script>
