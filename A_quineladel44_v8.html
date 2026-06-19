@@ -444,9 +444,10 @@ body.dark .warn-pend{background:#2A1B00;border:1px solid #5C3A00;color:#F5C242;}
     <button onclick="loginAdmin()">Entrar</button>
   </div>
   <div class="hidden" id="adm-panel">
-    <div class="card">
-      <h3>Sesión admin</h3>
-      <div class="frow"><button class="ghost" onclick="logoutAdmin()">Salir del modo admin</button><button class="ghost" onclick="changeAdminPass()">Cambiar contraseña</button></div>
+    <div class="card" style="background:linear-gradient(135deg,var(--pitch-deep),var(--pitch));color:#fff;border:none;">
+      <h3 style="color:#fff;margin:0 0 6px;">🛡️ Modo administrador activo</h3>
+      <p style="margin:0 0 10px;font-size:12.5px;opacity:.9;">Tienes control total de esta sala. Las acciones destructivas piden confirmación.</p>
+      <div class="frow" style="margin-bottom:0;"><button class="ghost" onclick="logoutAdmin()">Salir del modo admin</button><button class="ghost" onclick="changeAdminPass()">Cambiar contraseña</button></div>
     </div>
     <div id="adm-widgets"></div>
     <div class="card">
@@ -563,9 +564,11 @@ const APP = {
 // Claves de almacenamiento local con espacio de nombres por app (evita que ambas
 // quinielas compartan estado/usuario si llegaran a servirse desde el mismo origen).
 const LSK = k => 'qm26_' + APP.id + '_' + k;
-(function migrateLS(){ // migración única desde las claves antiguas sin namespace (sin pérdida)
+(function migrateLS(){ // migración de claves antiguas sin namespace (solo preferencias del dispositivo)
   try{
-    ['state','me','theme','sound','onb','lastfetch'].forEach(k=>{
+    // OJO: 'state' y 'me' NO se migran: son específicos de cada sala y copiarlos a ambas apps
+    // mezclaría grupos. El estado real vive en Firebase y se repuebla solo.
+    ['theme','sound','onb','lastfetch'].forEach(k=>{
       const nk=LSK(k), ok='qm26_'+k, v=localStorage.getItem(ok);
       if(v!==null && localStorage.getItem(nk)===null) localStorage.setItem(nk, v);
     });
@@ -590,6 +593,14 @@ function verifySecret(input, stored){
   if(stored==null || stored==='') return true;           // sin clave configurada
   if(isHashed(stored)) return hashSecret(input)===stored; // comparación por hash
   return String(input)===String(stored);                 // compat: clave legada en texto plano
+}
+// Guarda interna: las funciones admin no deben ejecutarse aunque se llamen desde la consola.
+// (Defensa en profundidad; la seguridad real son las reglas de Firestore — ver firestore.rules)
+function requireAdmin(action){
+  if(isAdmin) return true;
+  try{ audit('ADMIN_DENIED', {action: action||''}); }catch(e){}
+  alert('🔒 Solo el administrador puede '+(action||'realizar esta acción')+'.');
+  return false;
 }
 
 // ---------------- DATOS DEL TORNEO ----------------
@@ -735,8 +746,8 @@ function defaultState(){
     lastBackup:null,         // respaldo previo a la última oficialización automática
     logs:[],                 // auditoría estructurada [{u,ev,t,page,device,browser,ver,data}]
     favorites:{teams:[],stadiums:[],groups:[]}, // §favoritos (compartidos)
-    meta:{appVersion:'2.0.0', schemaVersion:2, worldcupVersion:1},
-    config:{adminPass:'mundial2026', apiUrl:'', autoApi:true}
+    meta:{appVersion:'2.0.0', schemaVersion:2, worldcupVersion:1, appId:APP.id, roomDoc:ROOM_DOC},
+    config:{apiUrl:'', autoApi:true}
   };
 }
 let S = defaultState();
@@ -916,6 +927,7 @@ function mergeDefaults(data){
   out.locks = Object.assign(d.locks, (data&&data.locks)||{});
   out.config = Object.assign(d.config, (data&&data.config)||{});
   out.meta = Object.assign(d.meta, (data&&data.meta)||{});
+  out.meta.appId = APP.id; out.meta.roomDoc = ROOM_DOC; // la identidad de ESTA sala siempre manda
   out.favorites = Object.assign(d.favorites, (data&&data.favorites)||{});
   ['teams','stadiums','groups'].forEach(k=>{ if(!Array.isArray(out.favorites[k])) out.favorites[k]=[]; });
   ['competitors','results','customTeams','prevRanks','live','apiApplied','liveAnnounced'].forEach(k=>{ if(typeof out[k]!=='object'||out[k]===null||Array.isArray(out[k])) out[k]={}; });
@@ -926,7 +938,15 @@ function mergeDefaults(data){
 // ---------------- PERSISTENCIA + SYNC ----------------
 let db=null, syncState='local'; // local | connecting | online | error
 function saveLocal(){ try{ localStorage.setItem(LSK('state'), JSON.stringify(S)); }catch(e){} }
-function loadLocal(){ try{ const d=localStorage.getItem(LSK('state')); if(d) S=mergeDefaults(JSON.parse(d)); }catch(e){ S=defaultState(); } }
+function loadLocal(){
+  try{
+    const d=localStorage.getItem(LSK('state')); if(!d) return;
+    const p=JSON.parse(d);
+    // Anti-mezcla: si el estado local pertenece a OTRA sala, se ignora (no contaminar esta app).
+    if(p && p.meta && p.meta.roomDoc && p.meta.roomDoc!==ROOM_DOC){ S=defaultState(); return; }
+    S=mergeDefaults(p);
+  }catch(e){ S=defaultState(); }
+}
 
 // patch: objeto plano {ruta.con.puntos: valor | DEL}
 const DEL = '__DELETE__';
@@ -1003,6 +1023,7 @@ function initSync(){
         saveLocal();
         setSync('online');
         if(!window._secDone){ window._secDone=true; securityHardening(); } // hashea claves también en la nube
+        cleanStaleLive();
         refresh();
         if(!window._firstFetchDone && S.config.autoApi && (S.config.apiUrl||'').trim()){
           window._firstFetchDone=true;
@@ -1163,17 +1184,38 @@ function matchLockMs(m){
   if(String(m.date).includes('23:59')) return new Date(String(m.date).slice(0,10)+'T00:00:00-04:00').getTime();
   return new Date(m.date).getTime();
 }
-// ¿El partido ya empezó / está en vivo / tiene resultado? (cierre estricto de apuestas)
-function matchInProgressOrPast(m){
-  return !!S.results[m.id] || Date.now()>=matchLockMs(m) || !!(S.live && S.live[m.id]);
+function phLockKey(phase){ return (phase==='final'||phase==='third')?'finales':phase; }
+// ── FUENTE ÚNICA DE VERDAD del estado de un partido (abierto/cerrado/en vivo) ──
+// Usa liveOf (no S.live directo) para no cerrar partidos por marcadores en vivo viejos/incoherentes.
+function matchStatus(m){
+  const hasResult = !!S.results[m.id];
+  const phaseLocked = !!S.locks[phLockKey(m.phase)];
+  const gated = !!phaseGateMsg(m.phase);
+  const timeClosed = Date.now() >= matchLockMs(m);
+  const live = !!liveOf(m.id);
+  let reason='Abierto';
+  if(hasResult) reason='Resultado oficial';
+  else if(phaseLocked) reason='Fase cerrada';
+  else if(gated) reason='Fase no habilitada';
+  else if(live) reason='En vivo';
+  else if(timeClosed) reason='Partido iniciado';
+  return {hasResult, phaseLocked, gated, timeClosed, live,
+    closedForPlayers: hasResult||phaseLocked||gated||live||timeClosed, reason};
 }
-// ¿La apuesta de este partido está cerrada para CUALQUIERA (incluido admin en la vista)?
-function predClosed(m){
-  if(matchInProgressOrPast(m)) return true;
-  const phaseLockKey=(m.phase==='final'||m.phase==='third')?'finales':m.phase;
-  if(S.locks[phaseLockKey]) return true;
-  if(phaseGateMsg(m.phase)) return true;
-  return false;
+// ¿El partido ya empezó / está en vivo / tiene resultado? (cierre estricto al guardar)
+function matchInProgressOrPast(m){ const s=matchStatus(m); return s.hasResult||s.timeClosed||s.live; }
+// ¿La apuesta está cerrada para CUALQUIERA (incluido admin en la vista)?
+function predClosed(m){ return matchStatus(m).closedForPlayers; }
+// Limpia marcadores "en vivo" obsoletos (ya no plausibles por fecha) para que no cierren partidos abiertos.
+function cleanStaleLive(){
+  if(!S.live) return;
+  const patch={};
+  for(const mid in S.live){
+    const lv=S.live[mid];
+    if(lv && lv.status==='final') continue;        // final por confirmar: se conserva
+    if(!liveOf(mid)){ patch['live.'+mid]=DEL; patch['liveAnnounced.'+mid]=DEL; }
+  }
+  if(Object.keys(patch).length) mutate(patch, {quiet:true});
 }
 
 // ---------------- NAVEGACIÓN / RENDER ----------------
@@ -1220,49 +1262,8 @@ function refresh(){
 }
 
 // ---------------- INICIO (DASHBOARD) ----------------
-function getMatchPredictionsComment(mid) {
-  const m = MIDX[mid];
-  const t = teamsOf(mid);
-  const bets = comps().filter(c => (c.preds||{})[mid]);
-  if (!bets.length) return { summary: 'Sin apuestas aún.', comment: 'Nadie ha pronosticado este partido.' };
-  
-  let countA = 0, countB = 0, countE = 0;
-  bets.forEach(c => {
-    const p = c.preds[mid];
-    const out = typeof p === 'object' ? p.outcome : p;
-    if (out === 'A') countA++;
-    else if (out === 'B') countB++;
-    else if (out === 'E') countE++;
-  });
-  
-  const pctA = Math.round((countA / bets.length) * 100);
-  const pctB = Math.round((countB / bets.length) * 100);
-  const pctE = Math.round((countE / bets.length) * 100);
-  
-  const totalPlayers = comps().length;
-  let summary = `Gana ${esc(t.teamA)} (${pctA}%) · Gana ${esc(t.teamB)} (${pctB}%)`;
-  if (m.phase === 'grupos') {
-    summary += ` · Empate (${pctE}%)`;
-  }
-  summary += ` <span style="opacity:.7;">· ${bets.length}/${totalPlayers} apostaron</span>`;
-  // Con pocas apuestas, los porcentajes son poco representativos: avisarlo.
-  if (totalPlayers > 0 && bets.length / totalPlayers < 0.5) {
-    return { summary, comment: `⚠️ Solo ${bets.length} de ${totalPlayers} han apostado: tendencia poco representativa aún.` };
-  }
-  
-  let comment = '';
-  if (countA > countB && countA > countE && (countA / bets.length) >= 0.6) {
-    comment = `🔥 El grupo confía mayoritariamente en la victoria de ${esc(t.teamA)}.`;
-  } else if (countB > countA && countB > countE && (countB / bets.length) >= 0.6) {
-    comment = `🔥 El grupo confía mayoritariamente en la victoria de ${esc(t.teamB)}.`;
-  } else if (countE > countA && countE > countB && (countE / bets.length) >= 0.5) {
-    comment = `🤝 Hay expectativa de un partido cerrado con tendencia al empate.`;
-  } else {
-    comment = `⚖️ Pronósticos muy divididos en el grupo, ¡cualquier cosa puede pasar!`;
-  }
-  
-  return { summary, comment };
-}
+// (Eliminada getMatchPredictionsComment: mostraba consenso/% de apuestas, prohibido por
+//  la regla "informar, nunca influir". El conteo neutral listos/pendientes vive en showNextMatchBettors.)
 
 function setMe(id){
   myId=id; localStorage.setItem(LSK('me'), id);
@@ -1288,7 +1289,7 @@ function renderInicio(){
   const scores=computeScores();
   const me=scores.find(x=>x.c.id===myId);
   const myC=compById(myId);
-  const pending = MATCHES.filter(m=>{ const li=lockInfo(m); return !li.locked && !(myC.preds||{})[m.id] && !phaseGateMsg(m.phase); }).length;
+  const pending = MATCHES.filter(m=>!predClosed(m) && !(myC.preds||{})[m.id]).length;
   const movHtml = me.mov>0?`<span class="dash-mov" style="color:#7CFC9A;">▲ ${me.mov}</span>`:(me.mov<0?`<span class="dash-mov" style="color:#FFB4B4;">▼ ${-me.mov}</span>`:`<span class="dash-mov">—</span>`);
 
   // BLOQUE 1: estado del jugador + podio mini
@@ -1434,6 +1435,7 @@ function renderInicio(){
 }
 
 function remindPodios(){
+  if(!requireAdmin('publicar recordatorios')) return;
   const inc=comps().filter(c=>!c.champ||!c.sub||!c.third).map(c=>c.name);
   if(!inc.length) return toast('Todos los podios están completos');
   pushFeed('⚠️','Recordatorio: '+inc.join(', ')+(inc.length>1?' aún no completan':' aún no completa')+' su podio (🏆🥈🥉). El plazo vence al iniciar los 32avos.');
@@ -1464,7 +1466,7 @@ function showNextMatchBettors(mid) {
 // Próximo partido jugable (abierto, no bloqueado, no en gate de fase)
 function nextPlayableMatch(){
   return MATCHES
-    .filter(m=>!S.results[m.id] && !lockInfo(m).locked && !phaseGateMsg(m.phase) && new Date(m.date) > new Date())
+    .filter(m=>!predClosed(m) && new Date(m.date) > new Date())
     .sort((a,b)=>a.date.localeCompare(b.date))[0] || null;
 }
 // 🔔 Aviso emergente al entrar: si el próximo partido no tiene pronóstico o marcador
@@ -2057,6 +2059,7 @@ function loginAdmin(){
 }
 function logoutAdmin(){ audit('LOGOUT',{role:'admin'}); isAdmin=false; renderMas(); }
 function changeAdminPass(){
+  if(!requireAdmin('cambiar la contraseña')) return;
   const np=prompt('Nueva contraseña de administrador (mín. 6 caracteres):');
   if(!np) return;
   if(np.length<6) return alert('Muy corta.');
@@ -2066,6 +2069,7 @@ function changeAdminPass(){
   alert('Contraseña actualizada (guardada cifrada). Nota: esta protección es de confianza entre amigos; la app corre en el navegador.');
 }
 function downloadBetsCSV() {
+  if(!requireAdmin('descargar reportes')) return;
   const rows = [
     ["Jugador", "Partido ID", "Fase", "Fecha Partido", "Local", "Visitante", "Apuesta Ganador", "Goles Local (Pronóstico)", "Goles Visitante (Pronóstico)", "Resultado Real", "Puntos Ganados", "Fecha Registro Apuesta"]
   ];
@@ -2134,6 +2138,7 @@ function downloadBetsCSV() {
 }
 
 function downloadActivityLog(){
+  if(!requireAdmin('descargar el registro de actividad')) return;
   const hist=(S.history||[]);
   if(!hist.length) return alert('Aún no hay actividad registrada.');
   const rows=[["#","Fecha y hora","Evento"]];
@@ -2147,6 +2152,7 @@ function downloadActivityLog(){
   setTimeout(()=>URL.revokeObjectURL(url),5000);
 }
 function downloadAuditLog(){
+  if(!requireAdmin('descargar la auditoría')) return;
   const logs=(S.logs||[]);
   if(!logs.length) return alert('Aún no hay eventos de auditoría.');
   const rows=[["#","Usuario","Evento","Fecha y hora","Página","Dispositivo","Navegador","Versión","Datos"]];
@@ -2188,6 +2194,7 @@ function cheatFlags(c){
   return {flags, late, devs};
 }
 function openPlayerAudit(id){
+  if(!requireAdmin('ver la auditoría de jugadores')) return;
   const c=compById(id); if(!c) return;
   const logs=playerLogs(c.name);
   const cf=cheatFlags(c);
@@ -2258,6 +2265,7 @@ function adminDashboardHtml(){
 }
 
 function generateFunBulletin() {
+  if(!requireAdmin('generar el boletín')) return;
   const scores = computeScores();
   if (!scores.length) return alert('No hay suficientes datos.');
   
@@ -2375,6 +2383,7 @@ function renderMas(){
   document.getElementById('hist-list').innerHTML=(S.history||[]).slice(0,60).map(h=>`<div class="log"><b>[${esc(h.t)}]</b> ${esc(h.msg)}</div>`).join('')||'<p class="mut">Sin eventos.</p>';
 }
 function toggleLock(k,val){
+  if(!requireAdmin('bloquear o desbloquear fases')){ renderMas(); return; }
   mutate({['locks.'+k]:val});
   pushHist('Admin '+(val?'bloqueó':'desbloqueó')+' '+k);
   audit('SETTINGS_EDIT',{setting:'lock:'+k,value:val});
@@ -2410,6 +2419,7 @@ function renderAdminMatches(){
   div.innerHTML=html;
 }
 function saveResult(mid){
+  if(!requireAdmin('guardar resultados')) return;
   const m=MIDX[mid];
   const vA=document.getElementById('sA_'+mid).value, vB=document.getElementById('sB_'+mid).value;
   const patch={};
@@ -2434,7 +2444,13 @@ function saveResult(mid){
   const before=computeScores();
   const pr={}; before.forEach(x=>pr[x.c.id]=x.rank);
   if(vA===''||vB===''){
+    if(S.results[mid] && !confirm('¿Borrar el resultado oficial de '+m.label+'? Se recalcularán los puntajes y la API podrá volver a aplicarlo.')) return;
     patch['results.'+mid]=DEL;
+    // Limpiar también el guard de API y el marcador en vivo, para que la API pueda
+    // volver a oficializar este partido si sigue devolviendo el resultado final.
+    patch['apiApplied.'+mid]=DEL;
+    patch['live.'+mid]=DEL;
+    patch['liveAnnounced.'+mid]=DEL;
     applyAndAnnounce(patch, pr, m, null);
     pushHist('Admin eliminó/actualizó '+m.label);
     return;
@@ -2593,6 +2609,7 @@ function apiConfigured(){ return !!(S.config.apiUrl||'').trim(); }
 
 let lastApiMsg='';
 async function fetchApiNow(manual){
+  if(manual && !requireAdmin('forzar la actualización de resultados')) return;
   const url=(S.config.apiUrl||'').trim();
   if(!url){ if(manual) alert('Configura primero la URL de la API en este panel.'); return; }
   try{
@@ -2640,6 +2657,7 @@ async function fetchApiNow(manual){
     lastApiMsg='✅ '+nowStr()+' · '+liv.length+' en vivo · '+n+' oficializado(s)'+(pend?' · '+pend+' final(es) por confirmar':'');
     try{localStorage.setItem(LSK('lastfetch'), String(Date.now()));}catch(e){}
     if(manual) toast('🔄 Sincronizado: '+n+' oficial(es) · '+liv.length+' en vivo'+(pend?' · '+pend+' por confirmar':''));
+    cleanStaleLive();
     refresh();
   }catch(err){
     lastApiMsg='⚠️ '+nowStr()+' · Error: '+err.message+' (modo manual activo)';
@@ -2667,8 +2685,8 @@ function maybeFetchOnFocus(){
 }
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') maybeFetchOnFocus(); });
 window.addEventListener('focus', maybeFetchOnFocus);
-function setApiUrl(v){ mutate({'config.apiUrl': v.trim()}); audit('SETTINGS_EDIT',{setting:'apiUrl'}); }
-function setAutoApi(v){ mutate({'config.autoApi': !!v}); pushHist('Admin '+(v?'activó':'desactivó')+' actualización automática'); audit('SETTINGS_EDIT',{setting:'autoApi',value:!!v}); }
+function setApiUrl(v){ if(!requireAdmin('configurar la API')){ renderMas(); return; } mutate({'config.apiUrl': v.trim()}); audit('SETTINGS_EDIT',{setting:'apiUrl'}); }
+function setAutoApi(v){ if(!requireAdmin('configurar la API')){ renderMas(); return; } mutate({'config.autoApi': !!v}); pushHist('Admin '+(v?'activó':'desactivó')+' actualización automática'); audit('SETTINGS_EDIT',{setting:'autoApi',value:!!v}); }
 
 // ---------------- EXPORT / IMPORT ----------------
 function exportData(){
@@ -2679,6 +2697,7 @@ function exportData(){
   document.body.appendChild(a); a.click(); a.remove();
 }
 function importData(e){
+  if(!requireAdmin('importar un respaldo')){ e.target.value=''; return; }
   const f=e.target.files[0]; if(!f) return;
   const rd=new FileReader();
   rd.onload=ev=>{
@@ -2689,11 +2708,11 @@ function importData(e){
       if(typeof p.competitors!=='object'||typeof p.results!=='object') throw 0;
       for(const id in p.competitors){ const c=p.competitors[id]; if(typeof c.name!=='string') throw 0; }
       for(const mid in p.results){ if(!MIDX[mid]) delete p.results[mid]; }
-      if(!confirm('Esto reemplaza TODOS los datos actuales'+(db?' (también en la nube)':'')+'. ¿Continuar?')) return;
+      if(!confirm('⚠️ Esto REEMPLAZA TODOS los datos actuales'+(db?' (también en la nube)':'')+'. Esta acción no se puede deshacer. ¿Continuar?')) return;
       S=mergeDefaults(p);
+      hardenSecretsInPlace();   // §cifrar PIN/clave ANTES de tocar la nube (no subir texto plano)
       saveLocal();
       if(db) db.doc(ROOM_DOC).set(S).catch(err=>setSync('error',err.message));
-      window._secDone=false; securityHardening(); // cifrar claves si el respaldo trae texto plano
       pushHist('Se importó un respaldo JSON');
       audit('IMPORT',null);
       refresh();
@@ -2862,6 +2881,17 @@ function securityHardening(){
     if(typeof S.config.adminPass!=='undefined') patch['config.adminPass']=DEL; // quitar texto plano
   }
   if(Object.keys(patch).length){ mutate(patch); }
+}
+// Igual que securityHardening pero modifica S en memoria SIN subir (para usar antes de un db.set).
+function hardenSecretsInPlace(){
+  Object.keys(S.competitors||{}).forEach(id=>{
+    const c=S.competitors[id];
+    if(c && c.pin && !isHashed(c.pin)) c.pin=hashSecret(c.pin);
+  });
+  if(S.config){
+    if(!S.config.adminPassHash) S.config.adminPassHash=hashSecret(S.config.adminPass||'mundial2026');
+    if(typeof S.config.adminPass!=='undefined') delete S.config.adminPass;
+  }
 }
 const DEFAULT_ADMIN_HASH = hashSecret('mundial2026');
 
@@ -3209,6 +3239,7 @@ loadLocal();
 runMigration();          // §migración con respaldo + validación + rollback
 buildWorldcupStats();    // §preprocesamiento único → window.WORLDCUP_STATS
 securityHardening();     // §privacidad: hashea PIN/clave admin en texto plano (local)
+cleanStaleLive();        // §limpia marcadores en vivo obsoletos
 audit('APP_OPEN', {appVersion:(S.meta&&S.meta.appVersion)||'2.0.0'});
 window.addEventListener('pagehide', ()=>{ try{ audit('APP_CLOSE',null); flushPendingNow(); }catch(e){} });
 resolveTeams();

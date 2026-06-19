@@ -1,0 +1,48 @@
+rules_version = '2';
+
+// ============================================================================
+//  Reglas de Firestore — Quiniela Mundial 2026
+//  Modelo: "confianza entre amigos". La app corre 100% en el navegador y NO usa
+//  Firebase Authentication, por lo que estas reglas NO pueden distinguir a un
+//  administrador de un jugador. La protección de admin de la app (PIN/clave
+//  hasheada + guardas requireAdmin) es disuasoria, NO seguridad fuerte.
+//
+//  Lo que SÍ hacen estas reglas:
+//   - Limitan el acceso EXCLUSIVAMENTE a los dos documentos de la quiniela.
+//   - Bloquean cualquier otra colección/documento.
+//   - Imponen un límite de tamaño para evitar abuso (doc < 900 KB).
+//   - Exigen que el documento conserve su identidad de sala (meta.roomDoc).
+//
+//  Para seguridad REAL (impedir que un jugador escriba resultados) hay que:
+//   1) Activar Firebase Authentication (p. ej. anónima + claim de admin), o
+//   2) Mover la escritura de resultados/locks a Cloud Functions, y
+//   3) Restringir aquí la escritura de esos campos a ese rol.
+//  Ver SECURITY.md para el plan de endurecimiento.
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Solo los documentos de cada sala: quiniela/main y quiniela/csm.
+    match /quiniela/{room} {
+      allow read: if room in ['main', 'csm'];
+
+      allow write: if room in ['main', 'csm']
+                   && request.resource.data.size() < 900 * 1024            // tope de tamaño
+                   && roomIdentityOk(room);
+    }
+
+    // Todo lo demás: denegado.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // El documento debe declarar (o no contradecir) su sala en meta.roomDoc.
+    function roomIdentityOk(room) {
+      let m = request.resource.data.meta;
+      return !('meta' in request.resource.data)
+             || !('roomDoc' in m)
+             || m.roomDoc == ('quiniela/' + room);
+    }
+  }
+}
