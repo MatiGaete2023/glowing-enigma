@@ -221,6 +221,22 @@ nav{display:flex;background:var(--card);border-top:1px solid var(--line);flex-sh
 
 /* ── V3: FILTROS TABLA ── */
 .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+/* ── Chips de estado de partido (unificados) ── */
+.stchip{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;white-space:nowrap;border:1px solid transparent;}
+.stchip.c-open{background:#DCFCE7;color:#15803D;}
+.stchip.c-soon{background:#FEF3C7;color:#92400E;}
+.stchip.c-live{background:#FEE2E2;color:#B91C1C;}
+.stchip.c-closed{background:#E5E7EB;color:#4B5563;}
+.stchip.c-off{background:#DBEAFE;color:#1D4ED8;}
+.stchip.c-lock{background:#EDE9FE;color:#6D28D9;}
+.stchip.c-gate{background:#F3F4F6;color:#6B7280;}
+body.dark .stchip.c-open{background:rgba(22,163,74,.25);color:#7CFC9A;}
+body.dark .stchip.c-soon{background:rgba(245,158,11,.22);color:#FCD34D;}
+body.dark .stchip.c-live{background:rgba(230,57,70,.25);color:#FCA5A5;}
+body.dark .stchip.c-closed{background:rgba(255,255,255,.1);color:#9CA3AF;}
+body.dark .stchip.c-off{background:rgba(59,130,246,.25);color:#93C5FD;}
+body.dark .stchip.c-lock{background:rgba(139,92,246,.25);color:#C4B5FD;}
+body.dark .stchip.c-gate{background:rgba(255,255,255,.08);color:#9CA3AF;}
 .chip{padding:10px 16px;border-radius:999px;border:1.5px solid var(--line);background:var(--card);font-size:13px;font-weight:800;color:var(--muted);cursor:pointer;user-select:none;transition:all .2s;min-height:44px;display:flex;align-items:center;}
 .chip.on{background:var(--pitch);color:#fff;border-color:var(--pitch);}
 
@@ -1206,6 +1222,18 @@ function matchStatus(m){
 function matchInProgressOrPast(m){ const s=matchStatus(m); return s.hasResult||s.timeClosed||s.live; }
 // ¿La apuesta está cerrada para CUALQUIERA (incluido admin en la vista)?
 function predClosed(m){ return matchStatus(m).closedForPlayers; }
+// Chip de estado unificado (misma fuente de verdad en todas las pantallas)
+function matchChip(m){
+  const s=matchStatus(m);
+  if(s.hasResult)   return '<span class="stchip c-off">🏁 Resultado oficial</span>';
+  if(s.live)        return '<span class="stchip c-live">🔴 En vivo</span>';
+  if(s.phaseLocked) return '<span class="stchip c-lock">🔒 Fase bloqueada</span>';
+  if(s.gated)       return '<span class="stchip c-gate">⏳ Fase no habilitada</span>';
+  if(s.timeClosed)  return '<span class="stchip c-closed">⛔ Cerrado por hora</span>';
+  const ms=matchLockMs(m)-Date.now();
+  if(ms < 60*60000) return '<span class="stchip c-soon">⏰ Cierra pronto</span>';
+  return '<span class="stchip c-open">🟢 Abierto</span>';
+}
 // Limpia marcadores "en vivo" obsoletos (ya no plausibles por fecha) para que no cierren partidos abiertos.
 function cleanStaleLive(){
   if(!S.live) return;
@@ -1370,6 +1398,20 @@ function renderInicio(){
     </div>`;
   } else {
     html+=`<div class="card" style="text-align:center;font-weight:800;color:var(--hit);font-size:14px;margin-bottom:12px;border-radius:12px;padding:12px;">✅ Todos tus pronósticos abiertos están al día</div>`;
+  }
+
+  // BLOQUE: TU PRÓXIMO PENDIENTE (accionable, con cuenta regresiva y CTA directo)
+  const nextPend = MATCHES.filter(m=>!predClosed(m) && !(myC.preds||{})[m.id]).sort((a,b)=>a.date.localeCompare(b.date))[0];
+  if(nextPend){
+    const tp=teamsOf(nextPend.id);
+    html+=`<div class="next-hero" style="border:2px solid var(--accent);margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:1px;color:var(--accent);margin-bottom:6px;">⏰ Tu próximo pendiente</div>
+      <div class="flags">${flag(tp.teamA)}<span class="vs">VS</span>${flag(tp.teamB)}</div>
+      <div class="nm">${esc(tp.teamA)} vs ${esc(tp.teamB)} ${matchChip(nextPend)}</div>
+      <div class="cd" data-cd="${esc(nextPend.date)}" style="color:var(--accent);font-weight:900;margin-top:6px;">⏳ ...</div>
+      <div class="dt">📅 ${esc(dateStr(nextPend.date))}</div>
+      <button class="btn-cta" style="width:100%;margin-top:10px;" onclick="go('pronos');selectPredUser('${esc(myId)}')">Completar este pronóstico →</button>
+    </div>`;
   }
 
   // BLOQUE: próximos partidos
@@ -1670,7 +1712,7 @@ function predRow(m, c){
   const draw = m.phase==='grupos' ? `<span class="${cls('E')}" onclick="setPred('${m.id}','E')">Empate</span>` : '';
   const gaVal = pGa!==undefined ? pGa : '';
   const gbVal = pGb!==undefined ? pGb : '';
-  const stIco = pOutcome ? '🟢' : (li.locked ? '🔴' : '🟡');
+  const predIco = pOutcome ? '✅' : (predClosed(m) ? '' : '🟡'); // ✅ pronosticado · 🟡 te falta
   const lvp = !r ? liveOf(m.id) : null;
   let liveTag='';
   if(lvp){
@@ -1680,7 +1722,7 @@ function predRow(m, c){
   }
   const cdSpan = !li.locked && !String(m.date).includes('23:59') ? ` <span data-cd="${esc(m.date)}" style="color:var(--pitch);font-weight:800;"></span>` : '';
   return `<div class="mrow">
-      <div class="mdate">${stIco} 📅 ${esc(dateStr(m.date))} ${li.locked?`<span class="lk">· ${esc(li.why)}</span>`:''}${cdSpan}${liveTag} ${ptsTag}</div>
+      <div class="mdate">${predIco} 📅 ${esc(dateStr(m.date))} ${matchChip(m)}${cdSpan}${liveTag} ${ptsTag}</div>
       <div class="mteams">
         <div class="tname r">${esc(t.teamA)} ${flag(t.teamA)}</div>
         <span class="${cls('A')}" onclick="setPred('${m.id}','A')">Gana</span>
@@ -1699,6 +1741,8 @@ function predRow(m, c){
       </div>
     </div>`;
 }
+let predFilter={mode:'abiertos', phase:'', team:''};
+function setPredFilter(mode){ predFilter.mode=mode; if(mode!=='fase')predFilter.phase=''; if(mode!=='equipo')predFilter.team=''; renderPredMatches(); }
 function renderPredMatches(){
   const div=document.getElementById('p-cont');
   const c=compById(predUserId);
@@ -1706,18 +1750,34 @@ function renderPredMatches(){
   // Solo se muestran directamente los partidos ABIERTOS (no comenzados, sin resultado,
   // fase habilitada). Los cerrados / pasados / próximas fases quedan en un menú colapsable.
   // Se usa predClosed (no lockInfo) para que también el admin vea los pasados colapsados.
-  const openM=MATCHES.filter(m=>!predClosed(m));
-  const closedM=MATCHES.filter(m=> openM.indexOf(m)<0 );
-  const done=openM.filter(m=>(c.preds||{})[m.id]).length;
-  let html=`<div class="prog-line"><b>${done}/${openM.length}</b> pronósticos abiertos completados <div class="pbar"><i style="width:${openM.length?Math.round(100*done/openM.length):0}%"></i></div></div>`;
+  const allOpen=MATCHES.filter(m=>!predClosed(m));
+  const closedM=MATCHES.filter(m=> allOpen.indexOf(m)<0 );
+  const done=allOpen.filter(m=>(c.preds||{})[m.id]).length;
+  // Filtros sobre los abiertos
+  let openM=allOpen.slice();
+  if(predFilter.mode==='pendientes') openM=openM.filter(m=>!(c.preds||{})[m.id]);
+  else if(predFilter.mode==='fase' && predFilter.phase) openM=openM.filter(m=>m.phase===predFilter.phase);
+  else if(predFilter.mode==='equipo' && predFilter.team) openM=openM.filter(m=>{const t=teamsOf(m.id);return t.teamA===predFilter.team||t.teamB===predFilter.team;});
+  const filters=[['abiertos','Abiertos'],['pendientes','Mis pendientes'],['fase','Por fase'],['equipo','Por equipo']];
+  let html=`<div class="prog-line"><b>${done}/${allOpen.length}</b> pronósticos abiertos completados <div class="pbar"><i style="width:${allOpen.length?Math.round(100*done/allOpen.length):0}%"></i></div></div>`;
+  html+=`<div class="chips">${filters.map(([k,n])=>`<span class="chip ${predFilter.mode===k?'on':''}" onclick="setPredFilter('${k}')">${n}</span>`).join('')}</div>`;
+  if(predFilter.mode==='fase'){
+    const phases=[...new Set(allOpen.map(m=>m.phase))];
+    html+=`<div class="frow"><select onchange="predFilter.phase=this.value;renderPredMatches();"><option value="">— elige fase —</option>${phases.map(p=>`<option value="${p}" ${predFilter.phase===p?'selected':''}>${esc(PHASE_NAMES[p])}</option>`).join('')}</select></div>`;
+  } else if(predFilter.mode==='equipo'){
+    const teams=[...new Set(allOpen.flatMap(m=>{const t=teamsOf(m.id);return [t.teamA,t.teamB];}))].sort((a,b)=>a.localeCompare(b,'es'));
+    html+=`<div class="frow"><select onchange="predFilter.team=this.value;renderPredMatches();"><option value="">— elige equipo —</option>${teams.map(t=>`<option value="${esc(t)}" ${predFilter.team===t?'selected':''}>${esc(t)}</option>`).join('')}</select></div>`;
+  }
   let curPh='';
   if(openM.length){
     openM.forEach(m=>{
       if(curPh!==m.phase){ html+=`<div class="phase-title">${esc(PHASE_NAMES[m.phase])}</div>`; curPh=m.phase; }
       html+=predRow(m,c);
     });
+  } else if(predFilter.mode==='pendientes' && allOpen.length){
+    html+='<div class="card" style="text-align:center;font-weight:800;color:var(--hit);">✅ ¡No te falta ningún pronóstico abierto!</div>';
   } else {
-    html+='<p class="mut" style="text-align:center;padding:14px;">No hay partidos abiertos para apostar en este momento. Revisa los cerrados abajo o vuelve más tarde. 👇</p>';
+    html+='<p class="mut" style="text-align:center;padding:14px;">No hay partidos para este filtro. Revisa los cerrados abajo o cambia el filtro. 👇</p>';
   }
   if(closedM.length){
     let chtml='', cp='';
