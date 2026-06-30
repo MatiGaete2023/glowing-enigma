@@ -774,6 +774,7 @@ let predUserId = '';
 let editId = null;
 let standings = {};   // cache de grupos
 let bracketTeams = {}; // mid -> {teamA,teamB} resueltos (sin mutar MATCHES)
+let bracketProjected = false; // true si las llaves usan finales API pendientes de oficializar
 
 // ---------------- UTILIDADES ----------------
 function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -1051,14 +1052,24 @@ function initSync(){
 }
 
 // ---------------- MOTOR DEL TORNEO ----------------
+function validScore(a,b){ return Number.isInteger(a) && Number.isInteger(b) && a>=0 && b>=0; }
+function officialResultOf(mid){ const r=S.results&&S.results[mid]; return r&&validScore(r.a,r.b)?r:null; }
+function visibleResultOf(mid){ const r=officialResultOf(mid); if(r) return r; const lv=liveOf(mid); return lv?Object.assign({_live:true},lv):null; }
+function projectableResultOf(mid){
+  const r=officialResultOf(mid); if(r) return r;
+  const lv=liveOf(mid);
+  return lv && lv.status==='final' && validScore(lv.a,lv.b) ? {a:lv.a,b:lv.b,winner:lv.winner||null,_projected:true} : null;
+}
+function groupKeyFromName(name){ return String(name||'').replace(/^Group\s+/i,'').replace(/^Grupo\s+/i,'').trim(); }
+function standingsRowsForGroup(name){ const k=groupKeyFromName(name); return Array.isArray(standings[k])?standings[k]:[]; }
 function resolveTeams(){
-  bracketTeams = {};
+  bracketTeams = {}; bracketProjected = false;
   MATCHES.forEach(m=> bracketTeams[m.id] = {teamA:m.teamA, teamB:m.teamB});
-  // Grupos
+  // Grupos: resultados oficiales + finales API por confirmar solo para tablas/proyección visual.
   standings = {};
   for(const g in GROUPS) standings[g] = GROUPS[g].map(t=>({t,pj:0,w:0,d:0,l:0,gf:0,gc:0,gd:0,pts:0}));
   MATCHES.filter(m=>m.phase==='grupos').forEach(m=>{
-    const r = S.results[m.id]; if(!r) return;
+    const r = projectableResultOf(m.id); if(!r) return;
     const A = standings[m.group].find(x=>x.t===m.teamA), B = standings[m.group].find(x=>x.t===m.teamB);
     if(!A||!B) return;
     A.pj++;B.pj++; A.gf+=r.a;A.gc+=r.b; B.gf+=r.b;B.gc+=r.a;
@@ -1069,8 +1080,11 @@ function resolveTeams(){
   const thirds = Object.keys(GROUPS).map(g=>standings[g][2]).sort((a,b)=> b.pts-a.pts || b.gd-a.gd || b.gf-a.gf);
   standings.best8 = thirds.slice(0,8);
 
-  const allDone = MATCHES.filter(m=>m.phase==='grupos').every(m=>S.results[m.id]);
-  if(allDone){
+  const groupMatches = MATCHES.filter(m=>m.phase==='grupos');
+  const allOfficial = groupMatches.every(m=>officialResultOf(m.id));
+  const allProjectable = groupMatches.every(m=>projectableResultOf(m.id));
+  if(allProjectable){
+    bracketProjected = !allOfficial;
     const W = Object.keys(GROUPS).map(g=>standings[g][0].t);
     const R = Object.keys(GROUPS).map(g=>standings[g][1].t);
     const T = standings.best8.map(x=>x.t);
@@ -2079,7 +2093,7 @@ function renderMundial(){
   document.getElementById('m-terceros').innerHTML=th;
   // bracket
   const c = cmpId?compById(cmpId):null;
-  let bk='', curPh='';
+  let bk=bracketProjected?'<div class="card mut" style="border-color:var(--accent);">📡 Proyección con finales API pendientes de oficializar.</div>':'', curPh='';
   MATCHES.filter(m=>m.phase!=='grupos').forEach(m=>{
     if(curPh!==m.phase){ bk+=`<div class="phase-title">${esc(PHASE_NAMES[m.phase])}</div>`; curPh=m.phase; }
     const t=teamsOf(m.id);
@@ -2581,12 +2595,17 @@ function earnedPtsFor(pred, m, r){
   }
   return p;
 }
+function invalidApiFinals(items){
+  return items.filter(it=>MIDX[it.id] && Number.isInteger(it.a) && Number.isInteger(it.b) && it.a===it.b && MIDX[it.id].phase!=='grupos' && it.winner!=='A' && it.winner!=='B');
+}
 function officializeBatch(items, source){
   // §36 idempotencia + §3 respaldo automático + §18 cascada (vía applyAndAnnounce/resolveTeams)
+  const invalid=invalidApiFinals(items);
+  if(invalid.length) invalid.forEach(it=>pushHistLocal('⚠️ ['+source+'] '+MIDX[it.id].label+' requiere winner A/B para oficializar empate de eliminación'));
   const fresh = items.filter(it=> MIDX[it.id] && !S.apiApplied[it.id] && !S.results[it.id]
     && Number.isInteger(it.a) && Number.isInteger(it.b) && it.a>=0 && it.b>=0
     && !(it.a===it.b && MIDX[it.id].phase!=='grupos' && it.winner!=='A' && it.winner!=='B'));
-  if(!fresh.length) return 0;
+  if(!fresh.length){ if(invalid.length) saveLocal(); return 0; }
   // respaldo previo (reversible)
   const backup={t:nowStr(), mids:fresh.map(f=>f.id)};
   applyPatchLocal({lastBackup:backup});
@@ -2615,38 +2634,40 @@ function revertLastApi(){
 }
 function norm(s){ return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim(); }
 const STAGE_MAP={GROUP_STAGE:'grupos',LAST_32:'r32',LAST_16:'r16',QUARTER_FINALS:'qf',SEMI_FINALS:'sf',THIRD_PLACE:'third',FINAL:'final'};
+function normalizeApiStatus(status){
+  const st=norm(status).replace(/[\s-]+/g,'_');
+  if(['finished','completed','final','finalizado','ft','fulltime','full_time','ended','terminado'].includes(st)) return 'finished';
+  if(['live','in_play','playing','1h','2h','half_time','paused','envivo','en_vivo'].includes(st) || st.includes('half')) return 'live';
+  return null;
+}
+function parseApiGoal(v){ const n=Number(v); return Number.isInteger(n) && n>=0 ? n : null; }
+function normalizeApiWinner(v,inverted){
+  const w=String(v||'').toUpperCase().trim();
+  if(w==='A'||w==='HOME') return inverted?'B':'A';
+  if(w==='B'||w==='AWAY') return inverted?'A':'B';
+  return null;
+}
+function apiScoresFrom(d,inverted){
+  const aa=parseApiGoal(inverted?d.b:d.a), bb=parseApiGoal(inverted?d.a:d.b);
+  if(aa===null||bb===null) return null;
+  return {a:aa,b:bb};
+}
 function resolveApiItem(d){
   if(!d) return null;
+  const normSt=normalizeApiStatus(d.status);
+  if(!normSt) return null; // status vacío o desconocido: ignorar, nunca asumir
   if(d.id && MIDX[d.id]) {
-    const st = String(d.status || '').toLowerCase().trim();
-    let normSt = null;
-    if (st === 'finished' || st === 'completed' || st === 'final' || st === 'finalizado') normSt = 'finished';
-    else if (st === 'live' || st === 'in_play' || st === 'playing' || st.includes('half') || st === 'paused' || st === 'envivo' || st === 'en vivo') normSt = 'live';
-    if (!normSt) return null; // status vacío o desconocido: ignorar, nunca asumir
-    const w = String(d.winner||'').toUpperCase().trim();
-    return {id:d.id, status:normSt, a:d.a, b:d.b, min:d.min|0, winner:(w==='A'||w==='B')?w:null};
+    const sc=apiScoresFrom(d,false); if(!sc) return null;
+    return {id:d.id, status:normSt, a:sc.a, b:sc.b, min:parseInt(d.min||0,10)||0, winner:normalizeApiWinner(d.winner,false)};
   }
   if(!d.home || !d.away || !d.stage) return null;
   const ph=STAGE_MAP[d.stage]; if(!ph) return null;
   const h=norm(d.home), w=norm(d.away);
-  
-  const st = String(d.status || '').toLowerCase().trim();
-  let normSt = '';
-  if (st === 'finished' || st === 'completed' || st === 'final') {
-    normSt = 'finished';
-  } else if (st === 'live' || st === 'in_play' || st === 'playing' || st.includes('half') || st === 'paused') {
-    normSt = 'live';
-  } else {
-    return null;
-  }
-  
   for(const m of MATCHES.filter(x=>x.phase===ph)){
     const t=teamsOf(m.id);
     const a=norm(t.teamA), b=norm(t.teamB);
-    if(a===h && b===w) return {id:m.id,status:normSt,a:d.a,b:d.b,min:d.min|0,
-      winner:d.winner==='HOME'?'A':(d.winner==='AWAY'?'B':null)};
-    if(a===w && b===h) return {id:m.id,status:normSt,a:d.b,b:d.a,min:d.min|0,
-      winner:d.winner==='HOME'?'B':(d.winner==='AWAY'?'A':null)};
+    if(a===h && b===w){ const sc=apiScoresFrom(d,false); if(!sc) return null; return {id:m.id,status:normSt,a:sc.a,b:sc.b,min:parseInt(d.min||0,10)||0,winner:normalizeApiWinner(d.winner,false)}; }
+    if(a===w && b===h){ const sc=apiScoresFrom(d,true); if(!sc) return null; return {id:m.id,status:normSt,a:sc.a,b:sc.b,min:parseInt(d.min||0,10)||0,winner:normalizeApiWinner(d.winner,true)}; }
   }
   return null;
 }
@@ -2712,9 +2733,10 @@ async function fetchApiNow(manual){
     for(const mid in S.live){ if(!livAll.some(d=>d.id===mid)){ lpatch['live.'+mid]=DEL; lpatch['liveAnnounced.'+mid]=DEL; } }
     if(Object.keys(lpatch).length) mutate(lpatch);
     if(announced && db){ pendingPatch['feed']=S.feed; }
+    const invalid = invalidApiFinals(fin).length;
     const n = doOfficialize ? officializeBatch(fin, 'API') : 0;
     const pend = doOfficialize ? 0 : fin.filter(d=>!S.results[d.id]).length;
-    lastApiMsg='✅ '+nowStr()+' · '+liv.length+' en vivo · '+n+' oficializado(s)'+(pend?' · '+pend+' final(es) por confirmar':'');
+    lastApiMsg='✅ '+nowStr()+' · '+liv.length+' en vivo · '+n+' oficializado(s)'+(pend?' · '+pend+' final(es) por confirmar':'')+(invalid?' · ⚠️ '+invalid+' requiere(n) winner A/B':'');
     try{localStorage.setItem(LSK('lastfetch'), String(Date.now()));}catch(e){}
     if(manual) toast('🔄 Sincronizado: '+n+' oficial(es) · '+liv.length+' en vivo'+(pend?' · '+pend+' por confirmar':''));
     cleanStaleLive();
@@ -3008,9 +3030,8 @@ function renderInfo(){
 function wcDayLabel(d){ return new Date(d+'T12:00:00-04:00').toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long'}); }
 function wcScoreCell(m){
   // resultado oficial de la quiniela si existe, sino el del dataset
-  if(m._appMid && S.results[m._appMid]){ const r=S.results[m._appMid]; return `<b style="color:var(--pitch);">${r.a}-${r.b}</b>`; }
+  if(m._appMid){ const vr=visibleResultOf(m._appMid); if(vr) return `<b style="color:${vr._live||vr._projected?'var(--accent)':'var(--pitch)'};">${vr._live||vr._projected?'🔴 ':''}${vr.a}-${vr.b}</b>`; }
   if(wcFinished(m)) return `<b style="color:var(--pitch);">${m.score.ft[0]}-${m.score.ft[1]}</b>`;
-  if(m._appMid){ const lv=liveOf(m._appMid); if(lv) return `<b style="color:var(--accent);">🔴 ${lv.a}-${lv.b}</b>`; }
   return `<span class="mut">${String(m.time||'').replace(/UTC.*/,'').trim()||'—'}</span>`;
 }
 function wcMatchRow(m){
@@ -3064,14 +3085,14 @@ function renderEquipos(body){
   body.innerHTML=html;
 }
 function renderInfoGrupos(body){
-  let html='<div class="card"><p class="mut">Tablas según el dataset del Mundial. Toca un grupo para ver sus partidos.</p><div class="ggrid">';
+  resolveTeams();
+  let html='<div class="card"><p class="mut">Tablas actualizadas con resultados oficiales y finales API pendientes de confirmar. Toca un grupo para ver sus partidos.</p><div class="ggrid">';
   WC.groups.forEach(g=>{
-    const rows=(WORLDCUP_STATS.groupTables||{})[g.name]||[];
+    const rows=standingsRowsForGroup(g.name);
+    const rowHtml = rows.length ? rows.map((r,i)=>`<tr class="${i<2?'q1':(i===2?'q3':'')}"><td style="text-align:left;">${flag(wcES(r.t))} ${esc(wcES(r.t))}</td><td>${r.pj}</td><td>${r.gd}</td><td><b>${r.pts}</b></td></tr>`).join('') : '<tr><td colspan="4" class="mut">Sin datos disponibles</td></tr>';
     html+=`<div class="gcard"><div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="openGroupSheet('${esc(g.name).replace(/'/g,"\\'")}')">
       <h4 style="margin:0;">${esc(grpLabel(g.name))}</h4>${favStar('groups',g.name)}</div>
-      <table><tr><th style="text-align:left;">Equipo</th><th>PJ</th><th>DG</th><th>Pts</th></tr>`+
-      rows.map((r,i)=>`<tr class="${i<2?'q1':(i===2?'q3':'')}"><td style="text-align:left;">${flag(wcES(r.t))} ${esc(wcES(r.t))}</td><td>${r.pj}</td><td>${r.dg}</td><td><b>${r.pts}</b></td></tr>`).join('')+
-      '</table></div>';
+      <table><tr><th style="text-align:left;">Equipo</th><th>PJ</th><th>DG</th><th>Pts</th></tr>${rowHtml}</table></div>`;
   });
   html+='</div></div>';
   body.innerHTML=html;
@@ -3095,7 +3116,8 @@ function statList(title,rows){
   return `<div class="card"><h3>${title}</h3>`+rows.map((r,i)=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px;"><span>${i+1}. ${r.label}</span><b>${r.val}</b></div>`).join('')+'</div>';
 }
 function renderStatsCenter(body){
-  const ts=Object.values(WORLDCUP_STATS.teamStats||{}).filter(t=>t.pj>0);
+  resolveTeams();
+  const ts=Object.keys(GROUPS).flatMap(g=>(standings[g]||[]).map(r=>({name:r.t,pj:r.pj,w:r.w,d:r.d,l:r.l,gf:r.gf,gc:r.gc,dg:r.gd,cs:null}))).filter(t=>t.pj>0);
   const ss=Object.values(WORLDCUP_STATS.stadiumStats||{});
   const top=(arr,key,n)=>arr.slice().sort((a,b)=>b[key]-a[key]).slice(0,n);
   const flagL=t=>`${flag(wcES(t.name))} ${esc(wcES(t.name))}`;
@@ -3104,8 +3126,9 @@ function renderStatsCenter(body){
   html+=statList('🛡️ Menos goles recibidos', ts.slice().sort((a,b)=>a.gc-b.gc).slice(0,5).map(t=>({label:flagL(t),val:t.gc})));
   html+=statList('🏆 Más victorias', top(ts,'w',5).map(t=>({label:flagL(t),val:t.w})));
   html+=statList('🤝 Más empates', top(ts,'d',5).map(t=>({label:flagL(t),val:t.d})));
-  html+=statList('🧤 Más vallas invictas', top(ts,'cs',5).map(t=>({label:flagL(t),val:t.cs})));
+  html+='<div class="card mut">ℹ️ Estadísticas de equipos recalculadas desde resultados de la quiniela/API; vallas invictas, estadios y goleadores dependen del dataset cargado.</div>';
   html+=statList('🥅 Goleadores', (WORLDCUP_STATS.scorers||[]).slice(0,10).map(s=>({label:esc(s.name),val:s.goals})));
+  if((WORLDCUP_STATS.scorers||[]).length) html+='<div class="card mut">ℹ️ Goleadores calculados desde el dataset cargado; la API actual solo actualiza marcadores.</div>';
   html+=statList('🏟️ Estadios con más partidos', top(ss,'played',5).map(s=>({label:'🏟️ '+esc(s.name)+' ('+esc(s.city)+')',val:s.played})));
   html+=statList('🥅 Estadios con más goles', top(ss,'goals',5).map(s=>({label:'🏟️ '+esc(s.name),val:s.goals})));
   // partidos con más goles / mayor diferencia
@@ -3226,13 +3249,13 @@ function openStadiumSheet(city){
 function openGroupSheet(gname){
   const g=WC.groups.find(x=>x.name===gname); if(!g) return;
   audit('GROUP_VIEW',{group:grpLabel(gname)});
-  const rows=(WORLDCUP_STATS.groupTables||{})[gname]||[];
+  resolveTeams();
+  const rows=standingsRowsForGroup(gname);
+  const rowHtml = rows.length ? rows.map((r,i)=>`<tr class="${i<2?'q1':(i===2?'q3':'')}"><td style="text-align:left;">${flag(wcES(r.t))} ${esc(wcES(r.t))}</td><td>${r.pj}</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td><td>${r.gf}</td><td>${r.gc}</td><td>${r.gd}</td><td><b>${r.pts}</b></td></tr>`).join('') : '<tr><td colspan="9" class="mut">Sin datos disponibles</td></tr>';
   const ms=(WORLDCUP_STATS.byGroup[gname]||[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
   openModal(`
     <h3 style="margin-top:0;">${esc(grpLabel(gname))} ${favStar('groups',gname)}</h3>
-    <table><tr><th style="text-align:left;">Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th>Pts</th></tr>`+
-    rows.map((r,i)=>`<tr class="${i<2?'q1':(i===2?'q3':'')}"><td style="text-align:left;">${flag(wcES(r.t))} ${esc(wcES(r.t))}</td><td>${r.pj}</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td><td>${r.gf}</td><td>${r.gc}</td><td>${r.dg}</td><td><b>${r.pts}</b></td></tr>`).join('')+
-    `</table><h3 style="margin-top:12px;">Partidos del grupo</h3>${ms.map(wcMatchRow).join('')}`);
+    <table><tr><th style="text-align:left;">Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th>Pts</th></tr>${rowHtml}</table><h3 style="margin-top:12px;">Partidos del grupo</h3>${ms.map(wcMatchRow).join('')}`);
 }
 
 // §Boletín WhatsApp — secciones del Mundial (100% local, sin consenso ni % de apuestas)
@@ -3267,17 +3290,17 @@ function worldcupBulletinSections(){
     t+=`\n`;
   }
   // Resumen de grupos (líder de cada grupo con PJ>0)
-  const gt=WORLDCUP_STATS.groupTables||{};
-  const leaders=Object.keys(gt).map(g=>({g,row:(gt[g]||[]).find(r=>r.pj>0)})).filter(x=>x.row);
+  resolveTeams();
+  const leaders=Object.keys(GROUPS).map(g=>({g,row:(standings[g]||[]).find(r=>r.pj>0)})).filter(x=>x.row);
   if(leaders.length){
     t+=`📊 *LÍDERES DE GRUPO:*\n`;
-    leaders.forEach(x=>{ t+=`${grpLabel(x.g)}: *${wcES(x.row.t)}* (${x.row.pts} pts)\n`; });
+    leaders.forEach(x=>{ t+=`${grpLabel('Group '+x.g)}: *${wcES(x.row.t)}* (${x.row.pts} pts)\n`; });
     t+=`\n`;
   }
   // Goleadores
   const sc=(WORLDCUP_STATS.scorers||[]).slice(0,5);
   if(sc.length && sc[0].goals>0){
-    t+=`🥅 *GOLEADORES:*\n`;
+    t+=`🥅 *GOLEADORES (dataset):*\n`;
     sc.forEach((s,i)=>{ t+=`${i+1}. ${s.name} — ${s.goals}\n`; });
     t+=`\n`;
   }
