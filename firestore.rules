@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /quiniela/{room} {
+
+      // Cualquiera con el link puede leer (así funciona la app para todos los jugadores).
+      allow read: if true;
+
+      // ── Documentos de RESPALDO (terminan en "_backup", ej. main_backup, csm_backup) ──
+      // Estructura distinta (snapshots), menos crítica: si algo sale mal aquí, el doc
+      // principal de abajo sigue protegido igual. Solo exige que tenga forma de respaldo.
+      allow write: if room.matches('.*_backup$')
+        && request.resource.data.keys().hasAll(['snapshots'])
+        && request.resource.data.snapshots is list;
+
+      // ── Documento PRINCIPAL de cada quiniela (main, csm, futuras salas) ──
+      // Creación: exige forma básica de quiniela real.
+      allow create: if !room.matches('.*_backup$')
+        && request.resource.data.keys().hasAll(['competitors','results']);
+
+      // Actualización: el corazón de la protección.
+      // Si 'competitors' o 'results' YA tenían contenido, la escritura no puede dejarlos
+      // completamente vacíos. Esto bloquea a nivel de base de datos el escenario exacto
+      // que ya ocurrió (un .set() sin merge borrando todo), pase lo que pase en el código.
+      allow update: if !room.matches('.*_backup$')
+        && request.resource.data.competitors is map
+        && request.resource.data.results is map
+        && (
+          !('competitors' in resource.data) ||
+          resource.data.competitors.size() == 0 ||
+          request.resource.data.competitors.size() > 0
+        )
+        && (
+          !('results' in resource.data) ||
+          resource.data.results.size() == 0 ||
+          request.resource.data.results.size() > 0
+        );
+
+      // Nadie borra un documento completo desde el cliente. Ni con un bug futuro.
+      allow delete: if false;
+    }
+
+    // Cualquier otra ruta queda bloqueada por defecto (documentado explícitamente).
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

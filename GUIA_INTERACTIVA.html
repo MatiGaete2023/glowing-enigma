@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0E5C36">
+<title>Cómo jugar · Quiniela Mundial 2026</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;700;900&display=swap');
+:root{
+  --pitch:#0E5C36; --pitch-deep:#093F25; --grass:#127A47;
+  --bg:#F4F7F1; --card:#FFFFFF; --card-alt:#EDF3EA;
+  --ink:#13251A; --muted:#5C6F62; --line:#D7E0D4;
+  --gold:#D4A017; --hit:#16A34A; --miss:#DC2626; --accent:#E63946;
+  --radius:16px;
+}
+body.dark{
+  --bg:#0A130E; --card:#111E16; --card-alt:#182A1F;
+  --ink:#ECF2EE; --muted:#8DA395; --line:#243B2E;
+  --pitch:#16A34A; --pitch-deep:#084B28; --grass:#15803D; --gold:#F5C242;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);line-height:1.6;transition:background .25s,color .25s;}
+.wrap{max-width:880px;margin:0 auto;padding:0 16px 60px;}
+header{background:linear-gradient(135deg,var(--pitch-deep),var(--pitch));color:#fff;padding:26px 16px 30px;text-align:center;position:relative;}
+header h1{font-family:'Outfit',sans-serif;font-weight:900;font-size:26px;margin:0;letter-spacing:-.5px;}
+header p{margin:6px 0 0;opacity:.9;font-size:14px;}
+.theme-btn{position:absolute;top:14px;right:14px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.2);color:#fff;width:40px;height:40px;border-radius:50%;font-size:18px;cursor:pointer;}
+h2{font-family:'Outfit',sans-serif;font-weight:900;font-size:20px;color:var(--pitch);margin:34px 0 10px;display:flex;align-items:center;gap:8px;}
+h3{font-family:'Outfit',sans-serif;font-size:15px;margin:18px 0 6px;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin:12px 0;box-shadow:0 4px 14px rgba(0,0,0,.04);}
+.lead{font-size:16px;}
+.pill{display:inline-block;background:var(--card-alt);border:1px solid var(--line);border-radius:999px;padding:3px 12px;font-size:13px;font-weight:700;margin:3px 4px 3px 0;}
+.steps{counter-reset:s;list-style:none;padding:0;margin:0;}
+.steps li{counter-increment:s;position:relative;padding:12px 0 12px 46px;border-bottom:1px solid var(--line);}
+.steps li:last-child{border-bottom:none;}
+.steps li::before{content:counter(s);position:absolute;left:0;top:10px;width:32px;height:32px;border-radius:50%;background:var(--pitch);color:#fff;font-weight:900;display:flex;align-items:center;justify-content:center;font-family:'Outfit',sans-serif;}
+.steps b{color:var(--pitch);}
+table{width:100%;border-collapse:collapse;margin:8px 0;}
+th,td{padding:9px 8px;text-align:left;border-bottom:1px solid var(--line);font-size:14px;}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);}
+td.pts{font-weight:900;color:var(--hit);text-align:center;white-space:nowrap;}
+.tag{font-weight:800;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media(max-width:560px){.grid2{grid-template-columns:1fr;}}
+.box{border-left:4px solid var(--pitch);background:var(--card-alt);border-radius:0 10px 10px 0;padding:12px 14px;margin:10px 0;font-size:14px;}
+.box.warn{border-color:var(--accent);}
+.box.gold{border-color:var(--gold);}
+/* status chips */
+.stchip{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;margin:2px;}
+.c-open{background:#DCFCE7;color:#15803D;}.c-soon{background:#FEF3C7;color:#92400E;}
+.c-live{background:#FEE2E2;color:#B91C1C;}.c-closed{background:#E5E7EB;color:#4B5563;}
+.c-off{background:#DBEAFE;color:#1D4ED8;}.c-lock{background:#EDE9FE;color:#6D28D9;}.c-gate{background:#F3F4F6;color:#6B7280;}
+body.dark .c-open{background:rgba(22,163,74,.25);color:#7CFC9A;}body.dark .c-soon{background:rgba(245,158,11,.22);color:#FCD34D;}
+body.dark .c-live{background:rgba(230,57,70,.25);color:#FCA5A5;}body.dark .c-closed{background:rgba(255,255,255,.1);color:#9CA3AF;}
+body.dark .c-off{background:rgba(59,130,246,.25);color:#93C5FD;}body.dark .c-lock{background:rgba(139,92,246,.25);color:#C4B5FD;}body.dark .c-gate{background:rgba(255,255,255,.08);color:#9CA3AF;}
+/* simulator */
+.sim-tabs{display:flex;gap:8px;margin-bottom:14px;}
+.sim-tab{flex:1;text-align:center;padding:10px;border-radius:10px;border:1.5px solid var(--line);background:var(--card);font-weight:800;cursor:pointer;font-size:13px;}
+.sim-tab.on{background:var(--pitch);color:#fff;border-color:var(--pitch);}
+.opt-row{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0;}
+.opt{flex:1;min-width:90px;text-align:center;padding:11px 8px;border:1.5px solid var(--line);border-radius:10px;background:var(--card);font-weight:800;cursor:pointer;font-size:13px;user-select:none;}
+.opt.sel{background:var(--pitch);color:#fff;border-color:var(--pitch);}
+.scbox{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;}
+.scbox label{font-size:12px;font-weight:700;color:var(--muted);}
+input.sc{width:56px;text-align:center;font-weight:900;font-size:18px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);}
+.result{margin-top:14px;text-align:center;background:var(--card-alt);border-radius:12px;padding:16px;}
+.result .big{font-family:'Outfit',sans-serif;font-size:46px;font-weight:900;line-height:1;}
+.result .exp{font-size:13px;color:var(--muted);margin-top:6px;}
+details{border:1px solid var(--line);border-radius:12px;background:var(--card);margin:8px 0;}
+summary{padding:13px 16px;font-weight:800;cursor:pointer;font-size:15px;list-style:none;}
+summary::-webkit-details-marker{display:none;}
+summary::before{content:'▸ ';color:var(--pitch);}
+details[open] summary::before{content:'▾ ';}
+details .body{padding:0 16px 14px;font-size:14px;}
+.nav-demo{display:flex;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:8px 0;}
+.nav-demo div{flex:1;text-align:center;padding:8px 2px;font-size:10px;font-weight:800;color:var(--muted);border-right:1px solid var(--line);}
+.nav-demo div:last-child{border-right:none;}
+.nav-demo div span{display:block;font-size:18px;}
+.foot{text-align:center;color:var(--muted);font-size:12px;margin-top:30px;}
+a{color:var(--pitch);font-weight:700;}
+</style>
+</head>
+<body>
+<header>
+  <button class="theme-btn" onclick="document.body.classList.toggle('dark')" title="Tema">🌓</button>
+  <h1>⚽ Cómo jugar la Quiniela Mundial 2026</h1>
+  <p>Guía interactiva · pronostica, suma puntos y domina la tabla</p>
+</header>
+<div class="wrap">
+
+  <div class="card lead">
+    La quiniela es una competencia entre amigos: durante el Mundial 2026 (48 selecciones, 104 partidos)
+    <b>pronosticas cada partido</b> y eliges tu <b>podio</b>. Cuantos más resultados aciertes, más puntos
+    sumas. Gana quien termine arriba de la tabla. Todo se hace desde la app, en tu teléfono o computador.
+  </div>
+
+  <h2>🚀 Empezar en 3 pasos</h2>
+  <ol class="steps">
+    <li><b>Regístrate y elige tu podio.</b> En la pestaña <b>⚽ Pronósticos</b> pones tu nombre, un PIN
+        opcional (4 dígitos, se guarda cifrado) y eliges <b>🏆 Campeón · 🥈 Subcampeón · 🥉 Tercero</b>
+        (tres equipos distintos).</li>
+    <li><b>Pronostica cada partido.</b> Elige quién gana (o empate en fase de grupos) y, si quieres,
+        el <b>marcador</b>. Las apuestas se cierran a la hora del partido.</li>
+    <li><b>Sigue la tabla.</b> En <b>🏆 Tabla</b> ves tu posición, puntos, precisión y racha. ¡A ganar!</li>
+  </ol>
+
+  <h2>🎯 Cómo se ganan los puntos</h2>
+  <div class="card">
+    <p>Por cada partido puedes ganar <b>hasta 5 puntos</b>:</p>
+    <table>
+      <tr><th>Si aciertas…</th><th style="text-align:center;">Ganas</th></tr>
+      <tr><td><span class="tag">El resultado</span> (quién gana / empate / quién avanza)</td><td class="pts">+3</td></tr>
+      <tr><td>…y además el <span class="tag">marcador exacto</span></td><td class="pts">+2</td></tr>
+      <tr><td>…o solo la <span class="tag">diferencia de goles</span></td><td class="pts">+1</td></tr>
+      <tr><td>No aciertas el resultado</td><td class="pts" style="color:var(--miss);">0</td></tr>
+    </table>
+    <div class="box gold"><b>Bonos de podio (al final del torneo):</b> 🏆 <b>+30</b> campeón ·
+      🥈 <b>+20</b> subcampeón · 🥉 <b>+10</b> tercer lugar.</div>
+    <p style="font-size:13px;color:var(--muted);margin:6px 0 0;">El marcador es opcional: marcar solo el
+      resultado ya da +3. El bonus de +2 (exacto) y +1 (diferencia) son excluyentes.</p>
+  </div>
+
+  <h2>🧮 Simulador de puntos</h2>
+  <div class="card">
+    <p style="margin-top:0;">Prueba cómo se calculan los puntos. Cambia tu apuesta y el resultado real:</p>
+    <div class="sim-tabs">
+      <div class="sim-tab on" id="tab-g" onclick="setMode('grupos')">Fase de grupos</div>
+      <div class="sim-tab" id="tab-k" onclick="setMode('ko')">Eliminatorias</div>
+    </div>
+
+    <h3 id="lbl-pred">Tu apuesta</h3>
+    <div class="opt-row" id="pred-opts"></div>
+    <div class="scbox">
+      <label>Marcador que predices (opcional):</label>
+      <input class="sc" id="pga" type="number" min="0" placeholder="–" oninput="calc()">
+      <b>–</b>
+      <input class="sc" id="pgb" type="number" min="0" placeholder="–" oninput="calc()">
+    </div>
+
+    <h3>Resultado real</h3>
+    <div class="scbox">
+      <label>Marcador final (90'):</label>
+      <input class="sc" id="rga" type="number" min="0" value="2" oninput="calc()">
+      <b>–</b>
+      <input class="sc" id="rgb" type="number" min="0" value="1" oninput="calc()">
+    </div>
+    <div id="ko-winner" style="display:none;">
+      <h3>Si quedó empate, ¿quién avanzó (penales)?</h3>
+      <div class="opt-row" id="win-opts"></div>
+    </div>
+
+    <div class="result">
+      <div class="big" id="sim-pts">+0</div>
+      <div class="exp" id="sim-exp">Elige tu apuesta.</div>
+    </div>
+  </div>
+
+  <h2>⚽ Fase de grupos vs. Eliminatorias</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3 style="margin-top:0;color:var(--pitch);">Fase de grupos (72 partidos)</h3>
+      <p>Eliges entre <b>3 opciones</b>: gana local · <b>empate</b> · gana visita. Más el marcador opcional.</p>
+      <div class="opt-row"><span class="opt sel">Gana 🇲🇽</span><span class="opt">Empate</span><span class="opt">Gana 🇿🇦</span></div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0;color:var(--accent);">Eliminatorias (32avos →)</h3>
+      <p>Eliges <b>quién avanza</b> (solo 2 opciones, <b>sin empate</b>). Más el marcador de los 90'.</p>
+      <div class="opt-row"><span class="opt sel">Avanza 🇧🇷</span><span class="opt">Avanza 🇭🇷</span></div>
+    </div>
+  </div>
+
+  <h2 id="ko">🥅 Apuestas en eliminatorias (en detalle)</h2>
+  <div class="card">
+    <p style="margin-top:0;">Desde la <b>primera ronda eliminatoria (32avos de final)</b> en adelante,
+      ya no hay empates que valgan como resultado: <b>siempre avanza un equipo</b>. Por eso:</p>
+    <ul>
+      <li><b>Apuestas quién avanza</b> (equipo 1 o equipo 2). No existe la opción “empate”.</li>
+      <li>Ganas <b>+3</b> si aciertas al equipo que avanza, <b>sin importar</b> si pasó en los 90',
+          en el alargue o en <b>penales</b>.</li>
+      <li>El <b>marcador</b> que predices es el de los <b>90 minutos</b>, y solo sirve para el bonus
+          de <b>+2 / +1</b>.</li>
+    </ul>
+    <div class="box warn">
+      <b>Penales cuentan.</b> Si el partido termina 1‑1 y se define por penales, quien predijo al
+      equipo que <b>avanzó</b> gana sus <b>+3</b>. Si además predijo <b>1‑1</b>, suma <b>+2</b> (marcador exacto).
+    </div>
+
+    <h3>Ejemplo: Octavos — predices “Avanza Brasil, 1 – 1”</h3>
+    <table>
+      <tr><th>Qué pasa</th><th style="text-align:center;">Puntos</th></tr>
+      <tr><td>Termina 1‑1, Brasil gana en penales</td><td class="pts">+5</td></tr>
+      <tr><td>Termina 0‑0, Brasil gana en penales</td><td class="pts">+4</td></tr>
+      <tr><td>Termina 2‑1 Brasil en los 90'</td><td class="pts">+3</td></tr>
+      <tr><td>Avanza Croacia</td><td class="pts" style="color:var(--miss);">0</td></tr>
+    </table>
+
+    <h3>El cuadro se arma solo</h3>
+    <p>No tienes que “seguir” a tu equipo. <b>Cada ronda es una apuesta independiente.</b> Cuando el
+      administrador cierra una ronda, el cuadro avanza automáticamente con los equipos que realmente
+      clasificaron, y en la pestaña <b>📊 Bracket</b> apuestas la ronda nueva. Tus apuestas anteriores
+      quedan fijas y puntuadas.</p>
+
+    <h3>Las fases se desbloquean en orden</h3>
+    <p style="margin:0;">Grupos → 32avos → Octavos → Cuartos → Semifinales → 3er puesto y Final.
+      Cada una se habilita cuando el admin cierra la anterior. Si ves
+      <span class="stchip c-gate">⏳ Fase no habilitada</span> aún no puedes apostar esa ronda.</p>
+  </div>
+
+  <h2>⛔ Cuándo cierran las apuestas</h2>
+  <div class="card">
+    <p>Cada partido muestra una etiqueta de estado:</p>
+    <p>
+      <span class="stchip c-open">🟢 Abierto</span>
+      <span class="stchip c-soon">⏰ Cierra pronto</span>
+      <span class="stchip c-live">🔴 En vivo</span>
+      <span class="stchip c-closed">⛔ Cerrado por hora</span>
+      <span class="stchip c-off">🏁 Resultado oficial</span>
+      <span class="stchip c-lock">🔒 Fase bloqueada</span>
+      <span class="stchip c-gate">⏳ Fase no habilitada</span>
+    </p>
+    <ul style="margin:6px 0 0;">
+      <li>La apuesta de un partido <b>cierra a su hora de inicio</b> (00:00 del día si no hay hora confirmada).</li>
+      <li>Un partido <b>en vivo</b> o <b>con resultado</b> ya está cerrado.</li>
+      <li>Tu <b>podio</b> se puede editar hasta que <b>empiezan los 32avos</b>; después queda bloqueado.</li>
+    </ul>
+  </div>
+
+  <h2>📱 Cómo usar la app (pantallas)</h2>
+  <div class="nav-demo">
+    <div><span>🏠</span>Inicio</div><div><span>⚽</span>Pronós.</div><div><span>🏆</span>Tabla</div>
+    <div><span>📊</span>Bracket</div><div><span>🌎</span>Mundial</div><div><span>⚙️</span>Más</div>
+  </div>
+  <details open><summary>🏠 Inicio</summary><div class="body">Tu panel personal: posición, puntos,
+    precisión, racha e insignias. Arriba aparece <b>“Tu próximo pendiente”</b> con cuenta regresiva y un
+    botón directo para completarlo. También ves los partidos en vivo con tus puntos proyectados.</div></details>
+  <details><summary>⚽ Pronósticos</summary><div class="body">Donde apuestas. Solo se muestran los
+    <b>partidos abiertos</b>; los cerrados y las próximas fases quedan en un menú colapsable para no
+    tener que bajar tanto. Tienes filtros: <b>Abiertos · Mis pendientes · Por fase · Por equipo</b>.
+    Elige el resultado y, si quieres, el marcador. Se guarda solo (✓).</div></details>
+  <details><summary>🏆 Tabla</summary><div class="body">Clasificación general con puntos, bonos y total.
+    Puedes ver las apuestas y estadísticas de cada jugador, comparar podios y filtrar por fase.</div></details>
+  <details><summary>📊 Bracket</summary><div class="body">El cuadro de eliminatorias. Puedes comparar
+    tu cuadro con el de otro jugador y ver cómo va avanzando el torneo.</div></details>
+  <details><summary>🌎 Mundial</summary><div class="body">Centro de información (todo sin conexión):
+    calendario con filtros, equipos y planteles, tablas de grupos, estadios, estadísticas (goleadores,
+    etc.), búsqueda y favoritos.</div></details>
+  <details><summary>⚙️ Más</summary><div class="body">Reglas, respaldo de datos y, para el
+    administrador, el panel de control (resultados, bloqueos, API de resultados, auditoría y reportes).</div></details>
+
+  <h2>❓ Preguntas frecuentes</h2>
+  <details><summary>¿Tengo que poner el marcador?</summary><div class="body">No. Marcar solo el resultado
+    ya te da +3. El marcador es opcional y suma el bonus de +2 (exacto) o +1 (diferencia).</div></details>
+  <details><summary>Puse empate pero escribí 2‑0, ¿qué pasa?</summary><div class="body">La app mantiene
+    todo coherente: si escribes el marcador, la opción se ajusta sola; si eliges una opción y el marcador
+    la contradice, el marcador se descarta. Nunca quedan inconsistentes.</div></details>
+  <details><summary>¿Y si el partido de eliminatoria va a penales?</summary><div class="body">Ganas tus
+    +3 si acertaste al equipo que <b>avanza</b>. El marcador para el bonus es el de los 90 minutos
+    (ej. 1‑1).</div></details>
+  <details><summary>Registré una apuesta y no aparece</summary><div class="body">Las apuestas se guardan
+    automáticamente y se sincronizan. Si no ves una, revisa que el partido siga <b>abierto</b> (no cerrado
+    por hora) y que estés en tu jugador. La app conserva tus cambios aunque cierres la app.</div></details>
+  <details><summary>¿Quién puede cambiar resultados?</summary><div class="body">Solo el administrador, con
+    su contraseña. Cada acción queda registrada en la auditoría con fecha, hora y dispositivo.</div></details>
+  <details><summary>¿Por qué hay dos apps (del 44 y CSM)?</summary><div class="body">Son dos grupos
+    independientes con jugadores distintos y datos separados. Una usa <b>tema claro</b> y otra
+    <b>tema oscuro</b>, con nombre y color distintos, para no confundirlas.</div></details>
+
+  <div class="box" style="margin-top:24px;">📖 ¿Quieres el reglamento completo? Revisa
+    <b>REGLAS_QUINIELA.md</b> en el repositorio, con el detalle de las apuestas de eliminatorias,
+    desempates y bonos de podio.</div>
+
+  <p class="foot">Quiniela Mundial 2026 · Guía interactiva · ¡Que gane el que más sabe de fútbol! 🍀</p>
+</div>
+
+<script>
+/* Simulador de puntos — replica EXACTAMENTE la fórmula de la app (earnedPtsFor) */
+let mode='grupos', pred=null, winner=null;
+function setMode(m){
+  mode=m; pred=null; winner=null;
+  document.getElementById('tab-g').classList.toggle('on', m==='grupos');
+  document.getElementById('tab-k').classList.toggle('on', m==='ko');
+  document.getElementById('lbl-pred').textContent = m==='grupos' ? 'Tu apuesta (¿quién gana?)' : 'Tu apuesta (¿quién avanza?)';
+  const host=document.getElementById('pred-opts');
+  if(m==='grupos'){
+    host.innerHTML = opt('A','Gana 🇦 Local')+opt('E','Empate')+opt('B','Gana 🇧 Visita');
+  } else {
+    host.innerHTML = opt('A','Avanza 🇦 Equipo 1')+opt('B','Avanza 🇧 Equipo 2');
+  }
+  // opciones de ganador por penales
+  document.getElementById('win-opts').innerHTML = winOpt('A','Avanza Equipo 1')+winOpt('B','Avanza Equipo 2');
+  calc();
+}
+function opt(v,txt){ return `<span class="opt" data-v="${v}" onclick="pick('${v}')">${txt}</span>`; }
+function winOpt(v,txt){ return `<span class="opt" data-w="${v}" onclick="pickWin('${v}')">${txt}</span>`; }
+function pick(v){ pred=v; document.querySelectorAll('#pred-opts .opt').forEach(o=>o.classList.toggle('sel',o.dataset.v===v)); calc(); }
+function pickWin(v){ winner=v; document.querySelectorAll('#win-opts .opt').forEach(o=>o.classList.toggle('sel',o.dataset.w===v)); calc(); }
+
+function actualOutcome(){
+  const ra=+document.getElementById('rga').value, rb=+document.getElementById('rgb').value;
+  if(isNaN(ra)||isNaN(rb)) return null;
+  if(mode==='grupos') return ra>rb?'A':(rb>ra?'B':'E');
+  // eliminatorias: si hay diferencia, gana ese; si empate, quien avanzó (penales)
+  return ra>rb?'A':(rb>ra?'B':(winner||null));
+}
+function calc(){
+  const ra=+document.getElementById('rga').value, rb=+document.getElementById('rgb').value;
+  const pga=document.getElementById('pga').value, pgb=document.getElementById('pgb').value;
+  const koWin=document.getElementById('ko-winner');
+  // mostrar selector de penales solo en KO con empate
+  koWin.style.display = (mode==='ko' && !isNaN(ra)&&!isNaN(rb)&&ra===rb) ? 'block' : 'none';
+  const act=actualOutcome();
+  const elPts=document.getElementById('sim-pts'), elExp=document.getElementById('sim-exp');
+  if(!pred){ elPts.textContent='+0'; elPts.style.color='var(--muted)'; elExp.textContent='Elige tu apuesta arriba.'; return; }
+  if(mode==='ko' && !isNaN(ra)&&!isNaN(rb)&&ra===rb && !winner){
+    elPts.textContent='?'; elPts.style.color='var(--muted)';
+    elExp.textContent='Empate en los 90\': elige quién avanzó por penales.'; return;
+  }
+  let p=0, exp='';
+  if(act===null){ exp='Falta el resultado real.'; }
+  else if(pred!==act){ p=0; exp='❌ Erraste el resultado: 0 puntos.'; }
+  else {
+    p=3; exp='✅ Acertaste el resultado (+3).';
+    if(pga!==''&&pgb!==''){
+      const a=+pga,b=+pgb;
+      if(a===ra&&b===rb){ p+=2; exp='🎯 ¡Marcador exacto! +3 y +2 = 5 puntos.'; }
+      else if((a-b)===(ra-rb)){ p+=1; exp='➕ Acertaste la diferencia de goles: +3 y +1 = 4 puntos.'; }
+      else exp='✅ Acertaste el resultado (+3). El marcador no coincide.';
+    } else exp='✅ Acertaste el resultado (+3). No pusiste marcador.';
+  }
+  elPts.textContent='+'+p;
+  elPts.style.color = p>=5?'var(--gold)':(p>0?'var(--hit)':'var(--miss)');
+  elExp.textContent=exp;
+}
+setMode('grupos');
+</script>
+</body>
+</html>
