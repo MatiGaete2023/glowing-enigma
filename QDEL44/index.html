@@ -1258,7 +1258,7 @@ function sameInstant(a,b){
   return Number.isFinite(ta)&&Number.isFinite(tb)&&Math.abs(ta-tb)<60000;
 }
 function isNoExactTime(d){ return String(d||'').includes('23:59'); }
-function noExactTimeLockMs(d){ return new Date(String(d).slice(0,10)+'T23:59:00-04:00').getTime(); }
+function noExactTimeLockMs(d){ return new Date(String(d).slice(0,10)+'T00:00:00-04:00').getTime(); }
 function dayStarted(d){ if(!d) return false; const md=new Date(d); md.setHours(0,0,0,0); return new Date()>=md; }
 // Bloqueo a hora exacta del partido; fechas 23:59 quedan abiertas hasta fin del dia.
 function matchStarted(d){
@@ -4322,6 +4322,9 @@ function wcTimeText(m){
   return String((m&&m.time)||'').replace(/UTC.*/,'').trim()||'—';
 }
 function wcScore(m){
+  // Solo resultado OFICIAL de la quiniela. El dataset embebido (window.WORLDCUP) contiene
+  // marcadores y goleadores FICTICIOS atribuidos a jugadores reales; nunca deben mostrarse
+  // como si fueran datos reales del torneo. Ver auditoría 2026-06-30.
   const id=wcAppMid(m);
   if(id){
     const r=S.results[id];
@@ -4329,8 +4332,7 @@ function wcScore(m){
   }
   const r=wcAppResult(m);
   if(r) return [Number(r.a), Number(r.b), 'app'];
-  const ft=m&&m.score&&m.score.ft;
-  return (ft&&ft.length>=2&&ft[0]!=null&&ft[1]!=null)?[Number(ft[0]),Number(ft[1]),'dataset']:null;
+  return null;
 }
 function wcFinished(m){ return !!wcScore(m); }
 function wcDisplayTeams(m){
@@ -4353,18 +4355,14 @@ function buildScheduleIndexes(o){
   o.squadByName={}; WC.squads.forEach(s=>o.squadByName[s.name]=s);
 }
 function buildScorers(o){
+  // Solo goles reales (eventos de API/en vivo rastreados por partido). Los arrays goals1/goals2
+  // del dataset embebido (window.WORLDCUP) son FICTICIOS -- atribuyen goles inventados a
+  // jugadores reales incluso cuando el marcador coincide por casualidad. Nunca se usan.
   const sc={};
   WC.matches.forEach(m=>{
-    const s=wcScore(m); if(!s) return;
-    const id=wcAppMid(m);
-    const apiGoals=id?apiTimeline(id).filter(ev=>String(ev.type||'').toLowerCase().includes('goal')):[];
-    if(apiGoals.length){
-      apiGoals.forEach(g=>{ const name=g.player||g.name; if(name) sc[name]=(sc[name]||0)+1; });
-      return;
-    }
-    const ft=m&&m.score&&m.score.ft;
-    if(s[2]==='app' && (!ft || Number(ft[0])!==s[0] || Number(ft[1])!==s[1])) return;
-    (m.goals1||[]).concat(m.goals2||[]).forEach(g=>{ if(g&&g.name) sc[g.name]=(sc[g.name]||0)+1; });
+    const id=wcAppMid(m); if(!id) return;
+    const apiGoals=apiTimeline(id).filter(ev=>String(ev.type||'').toLowerCase().includes('goal'));
+    apiGoals.forEach(g=>{ const name=g.player||g.name; if(name) sc[name]=(sc[name]||0)+1; });
   });
   o.scorers=Object.keys(sc).map(name=>({name,goals:sc[name]})).sort((a,b)=>b.goals-a.goals);
 }
@@ -4708,34 +4706,7 @@ function renderFavoritos(body){
 }
 
 /* ---------- FICHAS (modales) ---------- */
-function openMatchSheet(i){
-  const m=WC.matches[i]; if(!m) return;
-  audit('MATCH_VIEW',{match:wcES(m.team1)+' vs '+wcES(m.team2),date:m.date});
-  const st=(WORLDCUP_STATS.stadiumByCity||{})[m.ground];
-  let scoreHtml='';
-  let r=null;
-  if(m._appMid && S.results[m._appMid]) r=S.results[m._appMid];
-  if(r) scoreHtml=`<div style="font-size:30px;font-weight:900;color:var(--pitch);">${r.a} - ${r.b}</div><div class="mut">Resultado oficial de la quiniela</div>`;
-  else if(wcFinished(m)) scoreHtml=`<div style="font-size:30px;font-weight:900;color:var(--pitch);">${m.score.ft[0]} - ${m.score.ft[1]}</div>${m.score.ht?`<div class="mut">Parcial ${m.score.ht[0]}-${m.score.ht[1]}</div>`:''}`;
-  else scoreHtml=`<div style="font-size:15px;font-weight:800;color:var(--muted);">${esc(m.time||'Horario por confirmar')}</div>`;
-  const goals=(arr,side)=>(arr||[]).map(g=>`<div style="font-size:12px;">⚽ ${esc(g.name)} <span class="mut">${esc(g.minute)}'</span></div>`).join('');
-  const hasGoals=(m.goals1&&m.goals1.length)||(m.goals2&&m.goals2.length);
-  openModal(`
-    <h3 style="margin-top:0;font-family:system-ui,sans-serif;">${grpLabel(m.group||m.round||'')} · ${esc(m.round||'')}</h3>
-    <div style="text-align:center;">
-      <div style="font-size:34px;">${flag(wcES(m.team1))} <span style="font-size:16px;vertical-align:middle;color:var(--muted);">vs</span> ${flag(wcES(m.team2))}</div>
-      <div style="font-weight:800;margin:4px 0;">${esc(wcES(m.team1))} vs ${esc(wcES(m.team2))}</div>
-      ${scoreHtml}
-    </div>
-    ${hasGoals?`<div class="cmp-grid" style="margin-top:12px;"><div class="cmp-col"><h4>${esc(wcES(m.team1))}</h4>${goals(m.goals1)||'<span class="mut">—</span>'}</div><div class="cmp-col"><h4>${esc(wcES(m.team2))}</h4>${goals(m.goals2)||'<span class="mut">—</span>'}</div></div>`:''}
-    <div class="card" style="margin-top:12px;">
-      <div style="font-size:13px;line-height:1.8;">
-        📅 <b>${esc(wcDayLabel(m.date))}</b><br>
-        🕒 ${esc(m.time||'—')}<br>
-        ${st?`🏟️ <b>${esc(st.name)}</b> — ${esc(st.city)}<br>👥 ${(st.capacity||0).toLocaleString('es-CL')} asientos · 🕓 ${esc(st.timezone||'')}`:`🏟️ ${esc(m.ground||'Sede por confirmar')}`}
-      </div>
-    </div>`);
-}
+/* (función openMatchSheet duplicada y obsoleta eliminada en auditoría 2026-06-30; ver definición vigente más abajo) */
 function openMatchSheet(i){
   const m=WC.matches[i]; if(!m) return;
   const tt=wcDisplayTeams(m);
@@ -4750,7 +4721,8 @@ function openMatchSheet(i){
   else if(sc) scoreHtml=`<div style="font-size:30px;font-weight:900;color:var(--pitch);">${sc[0]} - ${sc[1]}</div>${m.score&&m.score.ht?`<div class="mut">Parcial ${m.score.ht[0]}-${m.score.ht[1]}</div>`:''}`;
   else scoreHtml=`<div style="font-size:15px;font-weight:800;color:var(--muted);">${esc(wcTimeText(m))}</div>`;
   const goals=(arr)=>(arr||[]).map(g=>`<div style="font-size:12px;">Gol ${esc(g.name)} <span class="mut">${esc(g.minute)}'</span></div>`).join('');
-  const hasGoals=(m.goals1&&m.goals1.length)||(m.goals2&&m.goals2.length);
+  // Goles del dataset embebido son ficticios: solo se listan si además hay resultado OFICIAL real.
+  const hasGoals=!!r && ((m.goals1&&m.goals1.length)||(m.goals2&&m.goals2.length));
   const apiBlock=id?(apiMetaGridHtml(id)+apiEventsHtml(id,0,{open:true,title:'Cronologia del partido'})):'';
   const venueName=(meta&&meta.venue)||(st&&st.name)||m.ground||'Por confirmar';
   const venueCity=(meta&&meta.city)||(st&&st.city)||'';
