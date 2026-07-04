@@ -1,0 +1,18 @@
+{
+  "name": "Quiniela del 44 — Mundial 2026",
+  "short_name": "Quiniela del 44",
+  "description": "Quiniela del Mundial 2026 con tabla, bracket, resultados y boletin.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F4F7F1",
+  "theme_color": "#0E5C36",
+  "icons": [
+    {
+      "src": "pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

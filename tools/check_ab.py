@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verifica que A_quineladel44_SAFE.html y B_quinelacsm_SAFE.html sean idénticos
+"""Verifica que QDEL44/index.html y QCSM/index.html sean idénticos
 salvo en la línea ROOM_DOC y el bloque APP {...}. Falla (exit 1) si difieren
 en cualquier otra parte, para que un arreglo no quede vivo solo en un archivo.
 
@@ -8,8 +8,8 @@ Uso:  python3 tools/check_ab.py
 import re, sys, os
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-A = os.path.join(ROOT, 'A_quineladel44_SAFE.html')
-B = os.path.join(ROOT, 'B_quinelacsm_SAFE.html')
+A = os.path.join(ROOT, 'QDEL44/index.html')
+B = os.path.join(ROOT, 'QCSM/index.html')
 
 def strip_identity(src):
     # elimina la línea ROOM_DOC y el bloque APP = {...}; para comparar el resto
