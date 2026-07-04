@@ -1,0 +1,18 @@
+{
+  "name": "Gym Tracker",
+  "short_name": "GymTracker",
+  "description": "Regreso al Gimnasio — seguimiento de entrenamiento",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0E1620",
+  "theme_color": "#0E1620",
+  "icons": [
+    {
+      "src": "/pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

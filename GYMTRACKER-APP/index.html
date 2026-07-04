@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0E1620">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gym Tracker">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/pwa-icon.svg">
+<title>Gym Tracker · Regreso al gimnasio</title>
+</head>
+<body>
+
+<!-- ===== ONBOARDING ===== -->
+<div id="onboarding" class="onboarding hide">
+  <h2>Bienvenido a Gym Tracker v11</h2>
+  <p>¿Tienes un respaldo del tracker anterior? Impórtalo para mantener tu historial.</p>
+  <button class="onb-btn primary" id="onbImportBtn">⤒ Importar respaldo anterior</button>
+  <button class="onb-btn secondary" id="onbFreshBtn">Empezar de cero</button>
+  <input type="file" id="onbFile" accept=".json,application/json" style="display:none">
+</div>
+
+<!-- ===== TOP BAR ===== -->
+<div class="top"><div class="wrap">
+  <div class="brand">Regreso<span>·</span>Gym</div>
+  <div class="qsel">
+    <button id="qDown" aria-label="Quincena anterior">−</button>
+    <span class="qv" id="qLabel">Q1</span>
+    <button id="qUp" aria-label="Quincena siguiente">+</button>
+  </div>
+</div></div>
+
+<!-- ===== DASHBOARD ===== -->
+<div id="viewDash" class="view">
+  <div class="wrap">
+    <h1 id="dashTitle">Quincena 1</h1>
+    <div class="muted" id="dashSub">Reentrada · RIR 3–4</div>
+    <div class="phase-name" id="phaseName">— sesiones de la quincena —</div>
+    <div class="track" id="track"></div>
+    <div class="progress"><span id="pCount">0/7</span><div class="pbar"><div class="pfill" id="pFill" style="width:0"></div></div></div>
+
+    <div class="row">
+      <div class="stat"><div class="k">Hechas (quincena)</div><div class="v" id="stDone">0<small>/7</small></div></div>
+      <div class="stat"><div class="k">Peso actual</div><div class="v" id="stWeight">—<small>kg</small></div></div>
+    </div>
+
+    <div class="panel">
+      <h3>Peso y cintura</h3>
+      <div class="chart-range">
+        <button class="active" data-range="30">30d</button>
+        <button data-range="90">90d</button>
+        <button data-range="0">Todo</button>
+      </div>
+      <div class="wq-label">Peso (kg)</div>
+      <div class="wq">
+        <input id="wInput" type="number" inputmode="decimal" placeholder="90.5" step="0.1">
+        <button id="wSave">Guardar</button>
+      </div>
+      <div class="wq-label" style="margin-top:10px">Cintura (cm)</div>
+      <div class="wq-waist">
+        <input id="waistInput" type="number" inputmode="decimal" placeholder="95" step="0.5">
+        <button id="waistSave">Guardar</button>
+      </div>
+      <div class="waist-last" id="lastWaist"></div>
+      <div class="spark-wrap">
+        <svg class="spark" id="spark" viewBox="0 0 320 60" preserveAspectRatio="none"></svg>
+        <div class="spark-minmax" id="sparkMinMax"></div>
+      </div>
+      <div class="wtrend" id="wTrend"></div>
+      <div class="wlist" id="wList"></div>
+    </div>
+
+    <div class="panel">
+      <h3>Pasos diarios <span class="tag">NEAT</span></h3>
+      <div class="step-goal" id="stepTarget">Sem 1: mide tu baseline</div>
+      <div class="step-bar-wrap"><div class="step-bar-fill" id="stepBar" style="width:0"></div></div>
+      <div class="wq-steps" style="display:flex">
+        <input id="stepsInput" type="number" inputmode="numeric" placeholder="7500">
+        <button id="stepsSave">Guardar</button>
+      </div>
+      <div id="hcBanner" class="hc-banner hide">
+        <span>↑ pasos via Health Connect</span>
+        <button id="hcSyncBtn">↻ Sincronizar</button>
+      </div>
+      <div class="wlist" id="stepList"></div>
+    </div>
+
+    <div class="banner" id="storeWarn" style="display:none">Sin almacenamiento local. Abre el archivo desde tu navegador para persistir datos.</div>
+  </div>
+</div>
+
+<!-- ===== SESSION ===== -->
+<div id="viewSession" class="view hide">
+  <div class="wrap">
+    <div class="sv-head">
+      <button class="back" id="svBack" aria-label="Volver">‹</button>
+      <div>
+        <div class="sv-title" id="svTitle"></div>
+        <span class="badge" id="svBadge"></span>
+      </div>
+    </div>
+    <div class="sv-meta" id="svFocus"></div>
+    <div id="hrArea" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <div class="hr-chip hide" id="hrChip">❤ <span id="hrPpm">--</span> ppm</div>
+      <button class="hr-connect-btn hide" id="hrConnectBtn">Conectar banda HR</button>
+      <button class="hr-connect-btn hide" id="hrDisconnectBtn" style="color:var(--fg3)">Desconectar HR</button>
+    </div>
+
+    <div class="timebar">
+      <div class="tfield"><label>Hora inicio</label><input id="tStart" type="time"></div>
+      <div class="tfield"><label>Hora término</label><input id="tEnd" type="time"></div>
+      <div class="tfield"><label>Fecha</label><input id="tDate" type="date"></div>
+      <div class="elapsed" id="elapsed"></div>
+    </div>
+
+    <div class="lumbar">
+      <div class="lh">Dolor lumbar de hoy (gobernador de seguridad)</div>
+      <div class="lbtns">
+        <button class="lbtn" data-l="0">0–1<small>sin dolor</small></button>
+        <button class="lbtn" data-l="2">2–3<small>modificar</small></button>
+        <button class="lbtn" data-l="4">≥4<small>parar</small></button>
+      </div>
+      <div class="lgov" id="lgov"></div>
+    </div>
+
+    <div id="exList"></div>
+    <div id="sessionSummary" class="hide"></div>
+    <textarea class="notes" id="svNotes" placeholder="Notas: hombro/rodilla, sensaciones, técnica, RPE…"></textarea>
+  </div>
+  <div class="cta"><div class="wrap"><button id="ctaBtn" class="btn-start">Iniciar sesión</button></div></div>
+</div>
+
+<!-- ===== HISTORY ===== -->
+<div id="viewHist" class="view hide">
+  <div class="wrap">
+    <h1>Historial</h1>
+    <div class="muted" id="histCount">—</div>
+    <button class="exp" id="exportCsv">⤓ Exportar CSV</button>
+    <div class="exp-row">
+      <button class="exp" id="importPlanBtn">⤒ Importar plan</button>
+      <button class="exp" id="exportPlanBtn">⤓ Exportar plan</button>
+    </div>
+    <div class="exp-row">
+      <button class="exp" id="importBackupBtn">⤒ Restaurar respaldo</button>
+      <button class="exp" id="exportBackupBtn">⤓ Respaldo completo</button>
+    </div>
+    <input type="file" id="planFile" accept=".json,application/json" style="display:none">
+    <input type="file" id="backupFile" accept=".json,application/json" style="display:none">
+    <div class="plan-ver" id="planVer"></div>
+    <div id="histList"></div>
+  </div>
+</div>
+
+<!-- ===== SETTINGS ===== -->
+<div id="viewSettings" class="view hide">
+  <div class="wrap">
+    <h1>Ajustes</h1>
+    <div class="settings-panel">
+      <div class="settings-row">
+        <div>
+          <div class="sr-label">Sincronización Firebase</div>
+          <div class="sr-sub" id="syncStatusText">—</div>
+        </div>
+        <div class="sync-status" id="syncBadge">—</div>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="sr-label">Sonido del timer</div>
+          <div class="sr-sub">Pips al terminar el descanso</div>
+        </div>
+        <div class="toggle" id="soundToggle" role="switch" tabindex="0"></div>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="sr-label">Health Connect</div>
+          <div class="sr-sub">Importar pasos y peso automáticos</div>
+        </div>
+        <div class="toggle" id="hcToggle" role="switch" tabindex="0"></div>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="sr-label">Edad (para zona cardíaca)</div>
+          <div class="sr-sub">Usado para calcular FCmáx = 220−edad</div>
+        </div>
+        <input id="ageInput" type="number" inputmode="numeric" placeholder="35" style="width:64px;background:var(--ink);border:1px solid var(--line);border-radius:8px;color:var(--fg);font-family:var(--mono);font-size:15px;font-weight:700;padding:6px 8px;text-align:center;min-height:44px">
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="sr-label">Pulsómetro BLE</div>
+          <div class="sr-sub" id="bleDeviceName">Sin dispositivo guardado</div>
+        </div>
+        <button class="exp" id="bleForgetBtn" style="margin:0;padding:8px 12px;font-size:12px;min-height:36px">Olvidar</button>
+      </div>
+    </div>
+    <div class="muted" style="margin-top:8px" id="uidDisplay"></div>
+  </div>
+</div>
+
+<!-- ===== TAB BAR ===== -->
+<div class="tabs show" id="tabs"><div class="wrap">
+  <button class="tab on" data-tab="dash"><span class="ic">▦</span>Panel</button>
+  <button class="tab" data-tab="hist"><span class="ic">≣</span>Historial</button>
+  <button class="tab" data-tab="settings"><span class="ic">⚙</span>Ajustes</button>
+</div></div>
+
+<!-- ===== REST TIMER CHIP ===== -->
+<div class="timer-chip hide" id="timerChip">
+  <div class="timer-ring-wrap">
+    <svg class="timer-ring" viewBox="0 0 36 36">
+      <circle class="timer-ring-bg" cx="18" cy="18" r="15.9"/>
+      <circle class="timer-ring-fill" id="timerRingFill" cx="18" cy="18" r="15.9" stroke-dasharray="100 100" stroke-dashoffset="0"/>
+    </svg>
+    <div class="timer-ring-text" id="timerRingText"></div>
+  </div>
+  <span class="tchip-label">descanso</span>
+  <span id="timerDisplay">1:30</span>
+  <button class="tchip-cancel" id="timerCancelBtn" aria-label="Cancelar timer">✕</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>
