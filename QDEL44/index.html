@@ -3501,20 +3501,36 @@ function scoreAdjustmentsHtml(){
     <p class="mut" style="margin-bottom:10px;">Suma o resta puntos por sanciones externas dejando registro visible en auditoría e historial.</p>
     <div class="frow">
       <select id="adj-player">${opts||'<option value="">Sin jugadores</option>'}</select>
-      <input type="number" id="adj-points" placeholder="+/- puntos" step="1">
+    </div>
+    <div class="chips" id="adj-sign" style="margin-bottom:8px;">
+      <span class="chip" data-sign="-1" onclick="setAdjSign(-1)">➖ Restar</span>
+      <span class="chip on" data-sign="1" onclick="setAdjSign(1)">➕ Sumar</span>
+    </div>
+    <div class="frow">
+      <input type="number" id="adj-points" placeholder="Cantidad de puntos" min="0" step="1" inputmode="numeric">
       <input id="adj-reason" placeholder="Justificación" maxlength="160">
       <button onclick="addScoreAdjustment()">Guardar ajuste</button>
     </div>
     <div class="adj-list">${rows||'<p class="mut">Sin ajustes registrados.</p>'}</div>
   </div>`;
 }
+// El signo se elige con un toggle en vez de escribirlo en el número: en varios móviles
+// (sobre todo iOS) el teclado numérico de <input type="number"> no tiene tecla "-",
+// así que era imposible ingresar un ajuste negativo (reporte del admin).
+let _adjSign=1;
+function setAdjSign(s){
+  _adjSign = s<0 ? -1 : 1;
+  const host=document.getElementById('adj-sign'); if(!host) return;
+  host.querySelectorAll('.chip').forEach(el=>el.classList.toggle('on', Number(el.dataset.sign)===_adjSign));
+}
 function addScoreAdjustment(){
   if(!requireAdmin('ajustar puntajes')) return;
   const pid=(document.getElementById('adj-player')||{}).value||'';
   const c=compById(pid);
   if(!c) return alert('Selecciona un jugador.');
-  const pts=Number((document.getElementById('adj-points')||{}).value);
-  if(!Number.isFinite(pts) || pts===0) return alert('Ingresa un ajuste distinto de 0.');
+  const raw=Number((document.getElementById('adj-points')||{}).value);
+  if(!Number.isFinite(raw) || raw===0) return alert('Ingresa una cantidad de puntos distinta de 0.');
+  const pts=_adjSign*Math.abs(raw);
   const reason=((document.getElementById('adj-reason')||{}).value||'').trim();
   if(reason.length<4) return alert('Agrega una justificación breve.');
   const id='adj_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
@@ -3523,6 +3539,8 @@ function addScoreAdjustment(){
   pushHist('Admin ajustó '+c.name+': '+(adj.points>0?'+':'')+adj.points+' pts — '+reason);
   audit('SCORE_ADJUSTMENT_CREATE',{user:c.name,points:adj.points,reason});
   toast('Ajuste guardado');
+  document.getElementById('adj-points').value='';
+  document.getElementById('adj-reason').value='';
 }
 function removeScoreAdjustment(id){
   if(!requireAdmin('quitar ajustes de puntaje')) return;
