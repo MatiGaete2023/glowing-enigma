@@ -61,16 +61,10 @@
 **Aceptación E2:** app funciona 100 % sobre RxDB; importar un respaldo real del v10 restaura sesiones/pesos/pasos; tests de migración verdes.
 
 ### E3 · Replicación Firestore (Firebase existente)
-1. `npm i firebase`. Config del proyecto Firebase del repo (pedir al usuario el `firebaseConfig` de la consola — NO inventarlo ni copiarlo de la quiniela sin confirmar que es el mismo proyecto).
+1. `npm i firebase`. Config del proyecto Firebase del repo: **leer `FIREBASE_SETUP.md`** (guía paso a paso para obtener `firebaseConfig` de la consola, configurar reglas de Firestore y habilitar auth anónima).
 2. Auth anónima (`signInAnonymously`, persistencia local). UI mínima en Ajustes: estado de sync (✓ sincronizado hace X min / offline / error) + uid abreviado.
 3. `replicateFirestore()` por colección contra `gymtracker/{uid}/{collection}`; `live: true`, pull+push. Resolución de conflictos: last-write-wins por `updatedAt` (suficiente para un solo usuario multi-dispositivo).
-4. **Ampliar `firestore.rules` (aditivo, sin tocar las reglas de la quiniela):**
-   ```
-   match /gymtracker/{uid}/{collection}/{doc} {
-     allow read, write: if request.auth != null && request.auth.uid == uid;
-   }
-   ```
-   Deploy de reglas: `firebase deploy --only firestore:rules` (documentar; lo corre el usuario).
+4. **Reglas de Firestore:** Ya configuradas en `FIREBASE_SETUP.md` (Paso 3). Cada colección está restringida por `uid` (solo lectura/escritura del usuario autenticado en sus propios datos). Deploy de reglas: `firebase deploy --only firestore:rules` (si modificas reglas locales; ver `FIREBASE_SETUP.md`).
 5. Modo sin red y modo "sync desactivado" en Ajustes deben funcionar igual que hoy (offline-first: RxDB es la verdad local, Firestore es réplica).
 
 **Aceptación E3:** editar en el navegador del PC y ver el cambio en el celular (y viceversa) en <10 s con red; sin red la app opera normal y sincroniza al volver.
