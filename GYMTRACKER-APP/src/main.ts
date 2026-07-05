@@ -1,10 +1,10 @@
 import './style.css';
 import { DEFAULT_PLAN } from './plan/default.ts';
-import type { Plan, Session, TrainingRecord, SetRow, WeightEntry, WaistEntry, StepsEntry, AppSettings } from './types.ts';
+import type { Plan, Session, TrainingRecord, SetRow, WeightEntry, StepsEntry, AppSettings } from './types.ts';
 import { FIELDS, SESSION_ORDER } from './types.ts';
 import {
   computeWeekDeltaByDate, computeNeatBaseline, validPlan,
-  hasData, generateCsv, downloadBlob
+  generateCsv, downloadBlob
 } from './utils.ts';
 import {
   initDb, getSettings, saveSettings,
@@ -25,6 +25,8 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 let PLAN: Plan = DEFAULT_PLAN;
 let currentQ = 1;
 let activeKey: string | null = null;
+let currentRec: TrainingRecord | null = null;
+let elapsedInterval: ReturnType<typeof setInterval> | null = null;
 let settings: AppSettings = { id: 'main', soundEnabled: true, hcEnabled: false, updatedAt: 0 };
 let weightRange = 30; // days; 0 = all
 let wakeLock: WakeLockSentinel | null = null;
@@ -104,10 +106,14 @@ function stopTimer(done = false): void {
   if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
   const chip = $<HTMLElement>('#timerChip');
   chip.classList.add('hide');
+  // Siempre cancela la notificación programada: si el timer terminó en primer
+  // plano o el usuario lo canceló, no debe sonar la notificación de fondo
+  if (Capacitor.isNativePlatform() && timerNotifId) {
+    LocalNotifications.cancel({ notifications: [{ id: timerNotifId }] }).catch(() => {});
+  }
   if (done) {
     if (settings.soundEnabled) playTimerDone();
     if (Capacitor.isNativePlatform()) Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {});
-    if (Capacitor.isNativePlatform()) LocalNotifications.cancel({ notifications: [{ id: timerNotifId }] }).catch(() => {});
   }
 }
 
@@ -279,7 +285,6 @@ async function openSession(sk: string): Promise<void> {
 
   if (!rec) {
     const now = new Date();
-    const hhmm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
     rec = {
       id: activeKey,
       date: now.toISOString().slice(0, 10),
@@ -289,7 +294,17 @@ async function openSession(sk: string): Promise<void> {
       lumbar: -1, done: false, tStart: '', tEnd: '', tDate: now.toISOString().slice(0, 10),
       notes: '', updatedAt: Date.now(), _deleted: false
     };
+    await upsertRecord(rec);
   }
+
+  // Normaliza: registros importados pueden tener menos ejercicios que el plan actual
+  rec.sets = rec.sets ?? [];
+  while (rec.sets.length < sx.ex.length) {
+    const ei = rec.sets.length;
+    rec.sets.push(Array.from({ length: sx.ex[ei].sets ?? 3 }, () => ({} as SetRow)));
+  }
+
+  currentRec = rec;
 
   showView('session');
   $<HTMLElement>('#svTitle').textContent = sx.name;
@@ -319,6 +334,11 @@ async function openSession(sk: string): Promise<void> {
   }
 
   acquireWakeLock();
+
+  if (elapsedInterval) clearInterval(elapsedInterval);
+  elapsedInterval = setInterval(() => {
+    if (currentRec && currentRec.tStart && !currentRec.tEnd) updateElapsed(currentRec);
+  }, 30000);
 }
 
 // ── Build exercises ───────────────────────────────────────────────────────────
@@ -361,10 +381,6 @@ async function buildExercises(sx: Session, rec: TrainingRecord): Promise<void> {
     }
 
     const flds = FIELDS[ex.t] ?? ['kg', 'reps', 'rir', 'rest'];
-    const setsArr: SetRow[] = rec.sets?.[ei] ?? Array.from({ length: ex.sets ?? 3 }, () => ({} as SetRow));
-    while (rec.sets && rec.sets[ei] && rec.sets[ei].length < (ex.sets ?? 3)) {
-      rec.sets[ei].push({} as SetRow);
-    }
 
     const exDiv = document.createElement('div');
     exDiv.className = 'ex-block';
@@ -422,8 +438,6 @@ function renderRows(wrap: HTMLElement, rec: TrainingRecord, ei: number, flds: st
 
     // PPM suggestion from HR
     if (flds.includes('ppm') && isHRConnected()) {
-      const age = settings.age ?? 35;
-      const cls = hrZoneClass(0, age);
       html += `<button class="ppm-suggest" data-ei="${ei}" data-si="${si}" title="Usar PPM actual">❤</button>`;
     }
 
@@ -618,6 +632,8 @@ async function renderHist(): Promise<void> {
   const done = allRecs.filter(r => r.done).sort((a, b) => b.date.localeCompare(a.date));
   $<HTMLElement>('#histCount').textContent = `${done.length} sesiones completadas`;
 
+  $<HTMLElement>('#planVer').textContent = `Plan: ${PLAN.meta.version} · ${PLAN.meta.name}`;
+
   const listEl = $<HTMLElement>('#histList');
   if (done.length === 0) {
     listEl.innerHTML = '<div class="muted empty-state">Sin sesiones completadas aún</div>';
@@ -643,10 +659,6 @@ async function renderHist(): Promise<void> {
       }
     });
   });
-
-  const weights = await getAllWeights();
-  const planVerEl = $<HTMLElement>('#planVer');
-  planVerEl.textContent = `Plan: ${PLAN.meta.version} · ${PLAN.meta.name}`;
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────
@@ -758,6 +770,9 @@ function wireEvents(): void {
     stopTimer();
     releaseWakeLock();
     if (hrUnsubscribe) { hrUnsubscribe(); hrUnsubscribe = null; }
+    if (elapsedInterval) { clearInterval(elapsedInterval); elapsedInterval = null; }
+    currentRec = null;
+    activeKey = null;
     $<HTMLElement>('#sessionSummary').classList.add('hide');
     renderDash();
     showView('dash');
@@ -765,9 +780,7 @@ function wireEvents(): void {
 
   // CTA (start/finish session)
   $<HTMLButtonElement>('#ctaBtn').addEventListener('click', async () => {
-    if (!activeKey) return;
-    const allRecs = await getAllRecords();
-    const rec = allRecs.find(r => r.id === activeKey);
+    const rec = currentRec;
     if (!rec) return;
 
     if (rec.done) {
@@ -810,9 +823,7 @@ function wireEvents(): void {
   // Lumbar buttons
   $$('.lbtn').forEach(btn => {
     btn.addEventListener('click', async () => {
-      if (!activeKey) return;
-      const allRecs = await getAllRecords();
-      const rec = allRecs.find(r => r.id === activeKey);
+      const rec = currentRec;
       if (!rec) return;
       const lvl = parseInt((btn as HTMLElement).dataset.l ?? '0');
       rec.lumbar = lvl;
@@ -822,13 +833,12 @@ function wireEvents(): void {
   });
 
   // Time inputs
-  ['tStart', 'tEnd', 'tDate'].forEach(id => {
+  (['tStart', 'tEnd', 'tDate'] as const).forEach(id => {
     $<HTMLInputElement>(`#${id}`).addEventListener('change', async () => {
-      if (!activeKey) return;
-      const allRecs = await getAllRecords();
-      const rec = allRecs.find(r => r.id === activeKey);
+      const rec = currentRec;
       if (!rec) return;
-      (rec as unknown as Record<string, unknown>)[id === 'tDate' ? 'tDate' : id] = ($<HTMLInputElement>(`#${id}`)).value;
+      rec[id] = ($<HTMLInputElement>(`#${id}`)).value;
+      if (id === 'tDate') rec.date = rec.tDate;
       updateElapsed(rec);
       await commit(rec);
     });
@@ -836,9 +846,7 @@ function wireEvents(): void {
 
   // Notes
   $<HTMLTextAreaElement>('#svNotes').addEventListener('change', async () => {
-    if (!activeKey) return;
-    const allRecs = await getAllRecords();
-    const rec = allRecs.find(r => r.id === activeKey);
+    const rec = currentRec;
     if (!rec) return;
     rec.notes = $<HTMLTextAreaElement>('#svNotes').value;
     await commit(rec);
@@ -861,7 +869,7 @@ function wireEvents(): void {
         chip.className = `hr-chip ${hrZoneClass(ppm, age)}`;
       });
       toast('HR conectado');
-    } catch (e) {
+    } catch {
       toast('Error al conectar HR');
     }
   });
@@ -990,12 +998,16 @@ function wireEvents(): void {
       if (data.schema === 1) await importLegacyBackupV1(data);
       else if (data.schema === 2) await importBackupV2(data);
       else { toast('Formato desconocido'); return; }
+      await saveSettings({ onboardingDone: true });
+      settings.onboardingDone = true;
       $<HTMLElement>('#onboarding').classList.add('hide');
       await renderDash();
       toast('Historial importado');
     } catch { toast('Error al importar'); }
   });
   $<HTMLButtonElement>('#onbFreshBtn').addEventListener('click', async () => {
+    await saveSettings({ onboardingDone: true });
+    settings.onboardingDone = true;
     $<HTMLElement>('#onboarding').classList.add('hide');
     await renderDash();
   });
@@ -1019,9 +1031,14 @@ function wireEvents(): void {
 // ── Onboarding check ──────────────────────────────────────────────────────────
 
 async function checkOnboarding(): Promise<void> {
+  if (settings.onboardingDone) return;
   const empty = await isDbEmpty();
   if (empty) {
     $<HTMLElement>('#onboarding').classList.remove('hide');
+  } else {
+    // Ya hay datos (p. ej. llegaron por sincronización): no molestar más
+    await saveSettings({ onboardingDone: true });
+    settings.onboardingDone = true;
   }
 }
 
@@ -1040,7 +1057,12 @@ async function init(): Promise<void> {
   }
 
   initAudioOnGesture();
-  await initFirebaseSync(true);
+
+  if (Capacitor.isNativePlatform()) {
+    LocalNotifications.requestPermissions().catch(() => {});
+  }
+
+  initFirebaseSync(true).catch(console.warn);
 
   wireEvents();
   await checkOnboarding();

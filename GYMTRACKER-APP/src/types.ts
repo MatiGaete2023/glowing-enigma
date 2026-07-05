@@ -103,6 +103,7 @@ export interface AppSettings {
   id: string;
   soundEnabled: boolean;
   hcEnabled: boolean;
+  onboardingDone?: boolean;
   age?: number;
   bleDeviceId?: string;
   bleDeviceName?: string;

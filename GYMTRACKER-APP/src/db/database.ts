@@ -93,6 +93,7 @@ const settingsSchema = {
     id: { type: 'string', maxLength: 20 },
     soundEnabled: { type: 'boolean' },
     hcEnabled: { type: 'boolean' },
+    onboardingDone: { type: 'boolean' },
     age: { type: 'number' },
     bleDeviceId: { type: 'string' },
     bleDeviceName: { type: 'string' },
@@ -106,13 +107,12 @@ const settingsSchema = {
 type GymDb = Awaited<ReturnType<typeof createRxDatabase>> & GymCollections;
 
 let _db: GymDb | null = null;
+let _initPromise: Promise<void> | null = null;
 
-export async function initDb(): Promise<void> {
-  if (_db) return;
+async function doInit(): Promise<void> {
   const db = await createRxDatabase({
     name: 'gymtracker',
     storage: getRxStorageDexie(),
-    ignoreDuplicate: true,
   });
   await db.addCollections({
     records: { schema: recordSchema },
@@ -124,8 +124,14 @@ export async function initDb(): Promise<void> {
   _db = db as unknown as GymDb;
 }
 
+// Promesa única: initDb puede llamarse concurrentemente (main + firebase)
+export function initDb(): Promise<void> {
+  if (!_initPromise) _initPromise = doInit();
+  return _initPromise;
+}
+
 async function getDb(): Promise<GymDb> {
-  if (!_db) await initDb();
+  await initDb();
   return _db!;
 }
 
@@ -133,10 +139,15 @@ export async function getRxDb(): Promise<GymDb> {
   return getDb();
 }
 
+// RxDB devuelve documentos inmutables; se clonan para poder mutarlos en la UI
+function clone<T>(v: T): T {
+  return structuredClone(v);
+}
+
 export async function getSettings(): Promise<AppSettings> {
   const db = await getDb();
   const doc = await db.settings.findOne('main').exec();
-  if (doc) return doc.toJSON() as AppSettings;
+  if (doc) return clone(doc.toJSON() as AppSettings);
   const defaults: AppSettings = {
     id: 'main', soundEnabled: true, hcEnabled: false, updatedAt: Date.now(),
   };
@@ -173,27 +184,27 @@ export async function upsertSteps(s: StepsEntry): Promise<void> {
 export async function getAllRecords(): Promise<TrainingRecord[]> {
   const db = await getDb();
   const docs = await db.records.find().exec();
-  return docs.map((d: { toJSON(): unknown }) => d.toJSON() as TrainingRecord);
+  return docs.map((d: { toJSON(): unknown }) => clone(d.toJSON() as TrainingRecord));
 }
 
 export async function getAllWeights(): Promise<WeightEntry[]> {
   const db = await getDb();
   const docs = await db.weights.find().exec();
-  return docs.map((d: { toJSON(): unknown }) => d.toJSON() as WeightEntry)
+  return docs.map((d: { toJSON(): unknown }) => clone(d.toJSON() as WeightEntry))
     .sort((a: WeightEntry, b: WeightEntry) => a.date.localeCompare(b.date));
 }
 
 export async function getAllWaist(): Promise<WaistEntry[]> {
   const db = await getDb();
   const docs = await db.waist.find().exec();
-  return docs.map((d: { toJSON(): unknown }) => d.toJSON() as WaistEntry)
+  return docs.map((d: { toJSON(): unknown }) => clone(d.toJSON() as WaistEntry))
     .sort((a: WaistEntry, b: WaistEntry) => a.date.localeCompare(b.date));
 }
 
 export async function getAllSteps(): Promise<StepsEntry[]> {
   const db = await getDb();
   const docs = await db.steps.find().exec();
-  return docs.map((d: { toJSON(): unknown }) => d.toJSON() as StepsEntry)
+  return docs.map((d: { toJSON(): unknown }) => clone(d.toJSON() as StepsEntry))
     .sort((a: StepsEntry, b: StepsEntry) => a.date.localeCompare(b.date));
 }
 

@@ -11,32 +11,20 @@
 
 @font-face {
   font-family: 'Space Grotesk';
-  src: url('./fonts/SpaceGrotesk-Medium.woff2') format('woff2');
-  font-weight: 500;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Space Grotesk';
-  src: url('./fonts/SpaceGrotesk-Bold.woff2') format('woff2');
-  font-weight: 700;
+  src: url('/fonts/SpaceGrotesk.woff2') format('woff2');
+  font-weight: 300 700;
   font-display: swap;
 }
 @font-face {
   font-family: 'Inter';
-  src: url('./fonts/Inter-Regular.woff2') format('woff2');
-  font-weight: 400;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Inter';
-  src: url('./fonts/Inter-SemiBold.woff2') format('woff2');
-  font-weight: 600;
+  src: url('/fonts/Inter.woff2') format('woff2');
+  font-weight: 100 900;
   font-display: swap;
 }
 @font-face {
   font-family: 'JetBrains Mono';
-  src: url('./fonts/JetBrainsMono-Medium.woff2') format('woff2');
-  font-weight: 500 700;
+  src: url('/fonts/JetBrainsMono.woff2') format('woff2');
+  font-weight: 100 800;
   font-display: swap;
 }
 
