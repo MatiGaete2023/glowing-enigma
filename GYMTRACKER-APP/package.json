@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "tsc -p tsconfig.app.json --noEmit"
+    "check": "tsc -p tsconfig.app.json --noEmit",
+    "pack": "npm run build && node scripts/pack-deploy.mjs"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.9",
