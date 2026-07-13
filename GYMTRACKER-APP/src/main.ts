@@ -300,6 +300,9 @@ async function renderSteps(steps: StepsEntry[]): Promise<void> {
     targetEl.textContent = `Objetivo: ${target.toLocaleString()} pasos/día`;
   }
 
+  const dateInput = $<HTMLInputElement>('#stepsDate');
+  if (!dateInput.value) dateInput.value = today;
+
   const bar = $<HTMLElement>('#stepBar');
   bar.style.width = target > 0 ? `${Math.min(100, (todaySteps / target) * 100)}%` : '0%';
 
@@ -788,13 +791,17 @@ function wireEvents(): void {
     toast('Cintura guardada');
   });
 
-  // Steps save
+  // Steps save (fecha editable: permite cargar días atrás)
   $<HTMLButtonElement>('#stepsSave').addEventListener('click', async () => {
     const v = parseInt($<HTMLInputElement>('#stepsInput').value);
     if (isNaN(v)) return;
-    const d = new Date().toISOString().slice(0, 10);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const dateInput = $<HTMLInputElement>('#stepsDate');
+    const d = dateInput.value || todayStr;
+    if (d > todayStr) { toast('No se pueden cargar pasos de una fecha futura'); return; }
     await upsertSteps({ id: `st_${d}`, date: d, steps: v, source: 'manual', updatedAt: Date.now(), _deleted: false });
     $<HTMLInputElement>('#stepsInput').value = '';
+    dateInput.value = todayStr;
     const steps = await getAllSteps();
     await renderSteps(steps);
     toast('Pasos guardados');
