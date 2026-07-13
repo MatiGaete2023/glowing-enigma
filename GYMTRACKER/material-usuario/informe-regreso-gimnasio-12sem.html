@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="es-CL">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan v9 · Pérdida de peso · 12 semanas · Matías</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0E1620; --ink2:#141F2C; --ink3:#1C2A3A; --line:#2A3B4F;
+    --fg:#E8EEF4; --fg2:#9DB0C2; --fg3:#6B8197; --muted:#6B8197;
+    --amber:#F2B33D; --amber-d:#C98F22; --teal:#37BBC9; --indigo:#9B8CFF;
+    --ok:#46C28E; --warn:#F2855B; --bad:#EF6464;
+    --disp:'Space Grotesk',system-ui,sans-serif;
+    --body:'Inter',system-ui,sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--ink);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:880px;margin:0 auto;padding:0 20px}
+  a{color:var(--teal);text-decoration:none}
+  header{padding:54px 0 30px;border-bottom:1px solid var(--line);position:relative;overflow:hidden}
+  header::before{content:"";position:absolute;inset:0;background:
+    radial-gradient(120% 80% at 12% -10%, rgba(242,179,61,.10), transparent 55%),
+    radial-gradient(100% 70% at 95% 0%, rgba(55,187,201,.08), transparent 50%);pointer-events:none}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--amber);font-weight:500}
+  h1{font-family:var(--disp);font-weight:700;font-size:clamp(30px,6vw,46px);line-height:1.04;letter-spacing:-.02em;margin:14px 0 10px}
+  h1 .sub{display:block;color:var(--fg3);font-weight:500;font-size:clamp(15px,2.6vw,19px);letter-spacing:0;margin-top:8px}
+  .thesis{max-width:620px;color:var(--fg2);font-size:15.5px}
+  .readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:26px}
+  .cell{background:var(--ink2);padding:14px 16px}
+  .cell .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--fg3)}
+  .cell .v{font-family:var(--disp);font-weight:600;font-size:21px;margin-top:5px}
+  .cell .v small{font-size:12px;color:var(--fg2);font-weight:400}
+  section{padding:42px 0;border-bottom:1px solid var(--line)}
+  .shead{display:flex;align-items:baseline;gap:14px;margin-bottom:22px}
+  .snum{font-family:var(--mono);font-size:12px;color:var(--amber-d);font-weight:700;letter-spacing:.1em;flex:none}
+  h2{font-family:var(--disp);font-weight:600;font-size:clamp(20px,3.5vw,27px);letter-spacing:-.01em}
+  h3{font-family:var(--disp);font-weight:600;font-size:16.5px;margin:26px 0 10px;color:var(--fg)}
+  p{margin:10px 0;color:var(--fg2)}
+  p strong,li strong{color:var(--fg);font-weight:600}
+  ul{margin:10px 0 10px 2px;list-style:none}
+  ul li{position:relative;padding-left:20px;margin:7px 0;color:var(--fg2)}
+  ul li::before{content:"";position:absolute;left:2px;top:10px;width:6px;height:6px;border-radius:2px;background:var(--amber)}
+  ul.teal li::before{background:var(--teal)}
+  .n{font-family:var(--mono);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;letter-spacing:.06em;vertical-align:middle}
+  .n1{background:rgba(70,194,142,.16);color:#7ddcb4}
+  .n2{background:rgba(242,133,91,.16);color:#f7a988}
+  .n3{background:rgba(155,140,255,.16);color:#bdb2ff}
+  .card{background:var(--ink2);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:14px 0}
+  .card.warn{border-color:rgba(242,133,91,.4);background:linear-gradient(0deg,rgba(242,133,91,.05),rgba(242,133,91,.05)),var(--ink2)}
+  .card.amber{border-left:3px solid var(--amber)}
+  .card.teal{border-left:3px solid var(--teal)}
+  .card.indigo{border-left:3px solid var(--indigo)}
+  .card h4{font-family:var(--disp);font-size:15px;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+  .pill{font-family:var(--mono);font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:3px 7px;border-radius:20px}
+  .pill.amber{background:rgba(242,179,61,.15);color:var(--amber)}
+  .pill.teal{background:rgba(55,187,201,.15);color:var(--teal)}
+  .pill.indigo{background:rgba(155,140,255,.15);color:var(--indigo)}
+  .tw{overflow-x:auto;margin:16px 0;border:1px solid var(--line);border-radius:12px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:520px}
+  th{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg3);text-align:left;padding:12px 14px;background:var(--ink3);font-weight:500;border-bottom:1px solid var(--line)}
+  td{padding:11px 14px;border-bottom:1px solid var(--line);color:var(--fg2);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  td.num,th.num{font-family:var(--mono);text-align:right}
+  td strong{color:var(--fg)}
+  .tag-re{font-family:var(--mono);font-size:9px;font-weight:700;color:var(--indigo);background:rgba(155,140,255,.14);padding:2px 5px;border-radius:4px;margin-left:5px}
+  .tag-new{font-family:var(--mono);font-size:9px;font-weight:700;color:var(--teal);background:rgba(55,187,201,.14);padding:2px 5px;border-radius:4px;margin-left:5px}
+  .dec{font-family:var(--mono);font-size:12.5px;background:var(--ink3);border:1px solid var(--line);border-left:3px solid var(--warn);border-radius:10px;padding:14px 16px;margin:12px 0;white-space:pre-wrap;line-height:1.65;overflow-x:auto;color:var(--fg2)}
+  .dec .hd{color:var(--warn);font-weight:700}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:640px){.grid2{grid-template-columns:1fr}table{min-width:480px}}
+  .foot{padding:34px 0 60px;color:var(--fg3);font-size:12.5px}
+  .foot .mono{font-family:var(--mono)}
+  .disc{font-size:12px;color:var(--fg3);border-top:1px dashed var(--line);padding-top:14px;margin-top:18px}
+  mark{background:rgba(242,179,61,.18);color:var(--fg);padding:0 3px;border-radius:3px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="eyebrow">Plan v9 · objetivo primario: pérdida de peso</div>
+    <h1>Regreso al gimnasio, reformulado
+      <span class="sub">12 semanas · integra el informe de apnea del sueño · supersede v8</span>
+    </h1>
+    <p class="thesis">Tu informe de vía aérea cambia dos cosas: confirma que <strong>bajar de peso es tratamiento causal</strong> de la apnea (no estética), y confirma que <strong>tu recuperación está objetivamente limitada</strong> mientras la AOS no se trate. El plan v9 reordena prioridades alrededor de eso — sin tocar lo que ya funcionaba: gobernadores lumbares, escalera de reintroducción, quincena de 7 sesiones.</p>
+    <div class="readout">
+      <div class="cell"><div class="k">Objetivo</div><div class="v" style="font-size:16px">Grasa −3–4<small> kg/bloque</small></div></div>
+      <div class="cell"><div class="k">IAH supino</div><div class="v">33.4<small> /h</small></div></div>
+      <div class="cell"><div class="k">IAH lateral</div><div class="v">1.6<small> /h</small></div></div>
+      <div class="cell"><div class="k">Sesión</div><div class="v">≤60<small> min</small></div></div>
+      <div class="cell"><div class="k">Déficit</div><div class="v">≤300<small> kcal</small></div></div>
+    </div>
+  </div>
+</header>
+
+<!-- 01 QUE CAMBIA EL INFORME -->
+<section id="informe">
+  <div class="wrap">
+    <div class="shead"><span class="snum">01</span><h2>Qué aporta el informe de apnea</h2></div>
+    <p>Datos duros del PDF (poligrafía 17-feb-2025 + endoscopía + rinomanometría + Cone Beam). <span class="n n1">N1</span> según ese documento:</p>
+    <div class="tw">
+    <table>
+      <thead><tr><th>Dato</th><th class="num">Valor</th><th>Lectura para el entrenamiento</th></tr></thead>
+      <tbody>
+        <tr><td><strong>IAH total</strong></td><td class="num">15.5/h</td><td>AOS moderada. Deja de ser "pendiente sin datos": es diagnóstico.</td></tr>
+        <tr><td><strong>IAH supino vs lateral izq</strong></td><td class="num">33.4 vs 1.6</td><td>Fenotipo posicional extremo (ratio 21:1). De espalda = rango grave; de lado = casi normal.</td></tr>
+        <tr><td><strong>Carga hipóxica</strong></td><td class="num">36.4 %min/h</td><td>Elevada (normal ≤10). Estrés hipóxico intermitente nocturno → activación simpática, recuperación limitada.</td></tr>
+        <tr><td><strong>Eventos centrales</strong></td><td class="num">0</td><td>Todo es obstructivo. El problema es vía aérea, no control respiratorio.</td></tr>
+        <tr><td><strong>IMC</strong></td><td class="num">30</td><td>El informe lista la reducción de peso como <strong>tratamiento causal paralelo</strong> (sección 6.3), no como cosmética.</td></tr>
+        <tr><td><strong>Ronquido</strong></td><td class="num">292/h · 4h19m</td><td>Fragmentación de sueño adicional. Otra razón para no depender de intensidad alta.</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="card teal">
+      <h4>Implicaciones directas para el plan <span class="n n2">N2</span></h4>
+      <ul style="margin:0">
+        <li><strong>La recuperación está limitada mientras la AOS no se trate.</strong> Carga hipóxica elevada + estimulante + déficit = tono simpático alto. Consecuencia: los "intervalos más duros" de Q4–Q5 (v8) se <strong>congelan</strong>. El gasto extra viene de densidad, carries y Z2, no de máximos.</li>
+        <li><strong>Bajar de peso sube de prioridad con respaldo clínico.</strong> El informe lo pone como tratamiento causal. El plan se optimiza para eso: preservar músculo + sumar gasto barato + adherencia.</li>
+        <li><strong>Timing:</strong> intensidad alta tarde-noche dificulta conciliar el sueño — con AOS + Samexid, entrenar mañana/mediodía cuando se pueda.</li>
+        <li><strong>Coadyuvante:</strong> tu informe lista terapia miofuncional orofaríngea como complemento (sección 6.6). Se agrega bloque opcional de 5 min en S3. Validar con médico.</li>
+      </ul>
+    </div>
+
+    <div class="card warn">
+      <h4>⚠ Lo que el entrenamiento NO puede hacer <span class="n n2">N2</span></h4>
+      <p style="margin:0 0 8px">Honestidad primero. El entrenamiento <strong>no es la palanca principal</strong> de la pérdida de peso — el déficit calórico (nutrición) manda. Lo que sí aporta: preservar masa magra en déficit, +150–300 kcal/día de gasto vía NEAT y finishers, adherencia (TDAH) y mejor sueño. Segundo: la pérdida con impacto clínico en AOS es ~10% del peso (~9 kg desde ~91): eso es un proyecto de <strong>6–9 meses</strong>, no de este bloque. Este bloque entrega la fase 1 (~3–4 kg) y los hábitos. Tercero: según tu propio informe, <strong>CPAP/posicional actúan AHORA</strong>; el peso actúa en meses. No son alternativas — son paralelos. Decisión con tu médico.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 02 AUDITORIA -->
+<section id="auditoria">
+  <div class="wrap">
+    <div class="shead"><span class="snum">02</span><h2>Auditoría de la conversación: errores y omisiones</h2></div>
+    <p>Lo que el plan v8 tenía mal o incompleto respecto al objetivo de bajar de peso, ahora con el informe a la vista.</p>
+
+    <div class="dec"><span class="hd">[OMISIÓN 1]  NEAT AUSENTE — LA PALANCA DE GASTO MÁS GRANDE NO ESTABA</span>
+├─ Síntoma: v8 solo programaba gasto dentro de las 7 sesiones (~3.5/sem)
+├─ Causa raíz: plan diseñado para "capacidad atlética + peso", no peso-primario
+├─ Impacto: el NEAT (pasos diarios) es el mayor componente modificable de gasto,
+│  costo de recuperación ~cero, riesgo lumbar cero, medible con tu banda
+└─ Solución: piso diario de pasos progresivo (§06) + finishers Z2 opcionales</div>
+
+    <div class="dec"><span class="hd">[ERROR 1]  Q4–Q5 PROGRAMABA "INTERVALOS MÁS DUROS" CON AOS SIN TRATAR</span>
+├─ Síntoma: v8 escalaba a máximos en sem 7–10
+├─ Causa raíz: se planificó cuando la apnea era "pendiente"; hoy es N1:
+│  moderada, carga hipóxica 36.4 (elevada), sin tratamiento en marcha
+├─ Impacto: intensidad máxima + hipoxia intermitente nocturna + estimulante
+│  + déficit = suma simpática sin capacidad de recuperación
+└─ Solución: máximos CONGELADOS hasta AOS tratada (CPAP o posicional
+   verificada). Intervalos se mantienen cortos, RPE 7–8, 1×/quincena</div>
+
+    <div class="dec"><span class="hd">[OMISIÓN 2]  SIN GUÍA DE HORARIO DE ENTRENAMIENTO VS SUEÑO</span>
+├─ Síntoma: ningún doc decía cuándo entrenar
+├─ Impacto: intensidad tarde-noche retrasa conciliación; con AOS el sueño
+│  ya es el cuello de botella de recuperación Y de pérdida de grasa
+└─ Solución: preferencia mañana/mediodía; si solo puedes tarde, que sea
+   S3 (Z2/movilidad) o versión sin intervalos</div>
+
+    <div class="dec"><span class="hd">[OMISIÓN 3]  MIOFUNCIONAL NO CONSIDERADO</span>
+├─ Síntoma: tu informe lo lista como coadyuvante (§6.6); el plan lo ignoraba
+├─ Solución: bloque opcional 5 min en S3 (lengua/paladar/faringe).
+└─ Límite: coadyuvante, NO reemplaza CPAP. Validar con médico</div>
+
+    <div class="dec"><span class="hd">[ERROR 2]  OBJETIVOS DUALES DIFUSOS ("ATLÉTICO + PESO")</span>
+├─ Síntoma: dos objetivos co-iguales diluyen decisiones (¿progresar dominadas
+│  o gastar más?); con TDAH la ambigüedad mata adherencia
+├─ Solución: jerarquía única (§03). Peso/cintura = primario. Fuerza =
+│  preservación (no PRs). Dominadas = subproducto: cada kg menos las acerca
+└─ Nota: los retos de quincena SE MANTIENEN — son combustible, no objetivo</div>
+
+    <div class="dec"><span class="hd">[CONSOLIDACIÓN]  PANEL MÉDICO ÚNICO</span>
+├─ Estaban dispersos: AST+ALT+CK · glicemia+HbA1c (sin metformina) · presión
+│  bajo estimulante · y ahora AOS (tu informe pide eval metabólica, §6.3)
+└─ Solución: UN solo panel de sangre + presión, UNA visita. El informe de
+   apnea y este plan piden lo mismo — aprovecha el viaje</div>
+  </div>
+</section>
+
+<!-- 03 OBJETIVOS -->
+<section id="objetivos">
+  <div class="wrap">
+    <div class="shead"><span class="snum">03</span><h2>Objetivos reformulados · jerarquía única</h2></div>
+    <div class="tw">
+    <table>
+      <thead><tr><th>#</th><th>Objetivo</th><th>Métrica dura</th><th>Meta 12 sem</th></tr></thead>
+      <tbody>
+        <tr><td class="num"><strong>1</strong></td><td><strong>Pérdida de grasa</strong> (tratamiento causal AOS según tu informe)</td><td>Media móvil 7d (tracker) + cintura quincenal</td><td><strong>−3 a −4 kg</strong> · cintura −2 a −4 cm</td></tr>
+        <tr><td class="num"><strong>2</strong></td><td><strong>Preservar masa magra</strong> en déficit</td><td>Cargas de trabajo estables a RIR objetivo (prensa/press/remo)</td><td>Mantener o subir levemente; <strong>no se buscan PRs</strong></td></tr>
+        <tr><td class="num"><strong>3</strong></td><td><strong>Base aeróbica</strong> (soporte de gasto + salud CV con AOS)</td><td>Minutos Z2 continuos (talk test)</td><td>15 → <strong>30–35 min</strong></td></tr>
+        <tr><td class="num">4</td><td>Marcadores atléticos (subproducto)</td><td>Retest sem 12: dominada, flexiones</td><td>Mejoran vía peso; sin volumen dedicado extra</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p><span class="n n2">N2</span> <strong>Aritmética honesta:</strong> déficit ≤300 ≈ 0.27 kg/sem por dieta; NEAT + finishers agregan gasto que el gobernador de tendencia regula (si la baja supera 0.7 kg/sem → +150 kcal). Resultado esperado del bloque: <strong>3–4 kg netos</strong> con adherencia ~80%. El horizonte con impacto clínico en la apnea (~10% ≈ 9 kg) es de 6–9 meses: v9 es la fase 1, no la promesa completa.</p>
+  </div>
+</section>
+
+<!-- 04 QUE NO CAMBIA -->
+<section id="nocambia">
+  <div class="wrap">
+    <div class="shead"><span class="snum">04</span><h2>Qué NO cambia (y por qué)</h2></div>
+    <div class="tw">
+    <table>
+      <thead><tr><th>Elemento</th><th>Estado</th><th>Razón</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Gobernador lumbar</strong> 2/10 · &gt;2 · ≥4</td><td>Intacto</td><td>Seguridad primero; ya está en el tracker con semáforo</td></tr>
+        <tr><td><strong>Escalera de reintroducción</strong> goblet→trap-bar→RDL→back squat</td><td>Intacta</td><td>Exposición graduada gobernada por dolor; independiente del objetivo de peso</td></tr>
+        <tr><td><strong>Quincena de 7 sesiones distintas</strong> · ≤60 min</td><td>Intacta</td><td>Es el motor anti-TDAH; la adherencia ES la variable que decide el peso</td></tr>
+        <tr><td><strong>Autoregulación RIR</strong> + cargas de arranque</td><td>Intacta</td><td>Las cargas viven en el tracker; nada que recalcular</td></tr>
+        <tr><td><strong>Talk test</strong> en Z2 · FC vs base medicada</td><td>Intacto</td><td>Correcciones v7/v8 siguen válidas</td></tr>
+        <tr><td><strong>Retos de quincena</strong></td><td>Intactos</td><td>Dopamina por logro medible; combustible de adherencia</td></tr>
+        <tr><td><strong>Nutrición</strong>: déficit ≤300 · proteína 1.7 g/kg · Panel v2 autoridad</td><td>Intacta</td><td>El informe refuerza el cap: recuperación &gt; velocidad. No se compensa con menos comida — se suma gasto</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</section>
+
+<!-- 05 SESIONES V9 -->
+<section id="sesiones">
+  <div class="wrap">
+    <div class="shead"><span class="snum">05</span><h2>Las 7 sesiones v9 · cambios marcados</h2></div>
+    <p>Estructura idéntica a v8 con <strong>adiciones append-only</strong> (tus registros previos no se rompen). Regla del finisher — binaria, para no pensar: <mark>si el trabajo principal termina antes del minuto 50 → 8–10 min Z2; si vas en ≥50 → se salta</mark>. El tope de 60 min se respeta siempre.</p>
+    <div class="tw">
+    <table>
+      <thead><tr><th>Sesión</th><th>Tipo</th><th>Cambio v9</th></tr></thead>
+      <tbody>
+        <tr><td><strong>S1</strong> Fuerza Base A</td><td><span class="pill amber">Fuerza</span></td><td>+ Finisher Z2 opcional 8–10′<span class="tag-new">NUEVO</span></td></tr>
+        <tr><td><strong>S2</strong> Potencia + Acarreos</td><td><span class="pill amber">Atlético</span></td><td>+ Finisher Z2 opcional<span class="tag-new">NUEVO</span></td></tr>
+        <tr><td><strong>S3</strong> Cardio Z2 + Movilidad</td><td><span class="pill teal">Acond.</span></td><td>Z2 techo 30→<strong>35 min</strong> · + Orofaríngeos opcional 5′<span class="tag-new">NUEVO</span> (coadyuvante según tu informe)</td></tr>
+        <tr><td><strong>S4</strong> Fuerza Base B</td><td><span class="pill amber">Fuerza</span></td><td>+ Finisher Z2 opcional<span class="tag-new">NUEVO</span></td></tr>
+        <tr><td><strong>S5</strong> Densidad EMOM</td><td><span class="pill amber">Metab.</span></td><td>+ Finisher Z2 opcional<span class="tag-new">NUEVO</span></td></tr>
+        <tr><td><strong>S6</strong> Cadena Post. + Reintro<span class="tag-re">REINTRO</span></td><td><span class="pill indigo">Reintro</span></td><td><strong>Sin cambios</strong> — día de columna, se mantiene limpio</td></tr>
+        <tr><td><strong>S7</strong> Circuito + Reto</td><td><span class="pill teal">Acond.</span></td><td>Intensidad acotada: <strong>RPE 7–8, sin sprints máximos</strong> mientras la AOS no esté tratada</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p style="font-size:13px"><span class="n n2">N2</span> Fases Q4–Q5 renombradas de "Intensidad / Pico atlético" a <strong>"Densidad / Densidad + carries"</strong>: la progresión de carga por RIR sigue (85→90%), pero el gasto extra viene de densidad y acarreos, no de intervalos máximos. El back squat técnico (barra vacía, Q4) de la escalera se mantiene. Si para Q4 ya hay CPAP o posicional verificada y el sueño mejoró, los intervalos duros se pueden descongelar — esa es la puerta, no la fecha.</p>
+
+    <h3 style="margin-top:38px">Prescripción completa por ejercicio <span class="n n2">N2</span></h3>
+    <p style="font-size:13.5px">Valores de arranque Q1. RIR sube de exigencia por fase (tabla §fases); <strong>ppm es referencia por tipo de esfuerzo, no objetivo</strong> — con lisdexanfetamina el número sube y no es confiable como gobernador (manda RIR/RPE/talk test). Donde no hay dato real ancla (xlsx abril), el peso dice <strong>"autoregula"</strong>: primera serie a criterio, ajusta por RIR real (sobran 5+ reps → sube 10–15% · quedan 3–4 → quedate · &lt;3 → baja 5–10%) — no se inventan números sin dato real.</p>
+
+    <h4 style="font-family:var(--disp);font-size:14.5px;margin:22px 0 8px;display:flex;align-items:center;gap:8px"><span class="pill amber">S1</span> Fuerza Base A</h4>
+    <div class="tw"><table>
+      <thead><tr><th>Ejercicio</th><th>Series</th><th>Peso sugerido</th><th>RIR</th><th>Descanso</th><th>ppm ref</th></tr></thead>
+      <tbody>
+        <tr><td>Prensa 45°</td><td class="num">3×8</td><td class="num">110 kg</td><td class="num">3–4</td><td class="num">100–120s</td><td class="num">115–135</td></tr>
+        <tr><td>Press pecho máquina</td><td class="num">3×8</td><td class="num">48 kg</td><td class="num">3–4</td><td class="num">90–120s</td><td class="num">115–135</td></tr>
+        <tr><td>Jalón al pecho</td><td class="num">3×8–10</td><td class="num">46 kg</td><td class="num">3–4</td><td class="num">90–120s</td><td class="num">115–130</td></tr>
+        <tr><td>Hip thrust máquina</td><td class="num">3×10</td><td class="num">42 kg</td><td class="num">3</td><td class="num">90s</td><td class="num">115–130</td></tr>
+        <tr><td>Pallof press (anti-rotación)</td><td class="num">2×10 /lado</td><td class="num">banda/polea</td><td class="num">3</td><td class="num">45–60s</td><td class="num">105–120</td></tr>
+        <tr><td>Finisher Z2 (opcional)<span class="tag-new">NUEVO</span></td><td class="num">1×8–10′</td><td class="num">—</td><td class="num">n/a</td><td class="num">continuo</td><td class="num">109–127</td></tr>
+      </tbody>
+    </table></div>
+
+    <h4 style="font-family:var(--disp);font-size:14.5px;margin:22px 0 8px;display:flex;align-items:center;gap:8px"><span class="pill amber">S2</span> Potencia + Acarreos</h4>
+    <div class="tw"><table>
+      <thead><tr><th>Ejercicio</th><th>Series</th><th>Peso sugerido</th><th>RIR</th><th>Descanso</th><th>ppm ref</th></tr></thead>
+      <tbody>
+        <tr><td>KB swing (control)</td><td class="num">5×8</td><td class="num">12–16 kg</td><td class="num">3</td><td class="num">60–90s</td><td class="num">125–145</td></tr>
+        <tr><td>Step-up con carga</td><td class="num">3×8 /lado</td><td class="num">autoregula</td><td class="num">3</td><td class="num">60–90s</td><td class="num">120–140</td></tr>
+        <tr><td>Press militar máquina</td><td class="num">3×8</td><td class="num">30 kg</td><td class="num">3–4</td><td class="num">90–120s</td><td class="num">115–135</td></tr>
+        <tr><td>Farmer carry</td><td class="num">3×30 m</td><td class="num">autoregula, pesado</td><td class="num">n/a</td><td class="num">60–90s</td><td class="num">120–140</td></tr>
+        <tr><td>Dead bug</td><td class="num">2×10</td><td class="num">corporal</td><td class="num">n/a</td><td class="num">45s</td><td class="num">100–115</td></tr>
+        <tr><td>Finisher Z2 (opcional)<span class="tag-new">NUEVO</span></td><td class="num">1×8–10′</td><td class="num">—</td><td class="num">n/a</td><td class="num">continuo</td><td class="num">109–127</td></tr>
+      </tbody>
+    </table></div>
+
+    <h4 style="font-family:var(--disp);font-size:14.5px;margin:22px 0 8px;display:flex;align-items:center;gap:8px"><span class="pill teal">S3</span> Cardio Z2 + Movilidad</h4>
+    <div class="tw"><table>
+      <thead><tr><th>Ejercicio</th><th>Duración</th><th>Carga</th><th>Gobernador</th><th>Descanso</th><th>ppm ref</th></tr></thead>
+      <tbody>
+        <tr><td>Bici o remo Z2</td><td class="num">15→35′</td><td class="num">—</td><td class="num">talk test</td><td class="num">continuo</td><td class="num">109–127</td></tr>
+        <tr><td>Movilidad cadera 90/90 + flexor</td><td class="num">5′</td><td class="num">sin carga</td><td class="num">—</td><td class="num">—</td><td class="num">n/a</td></tr>
+        <tr><td>Movilidad torácica</td><td class="num">3′</td><td class="num">sin carga</td><td class="num">—</td><td class="num">—</td><td class="num">n/a</td></tr>
+        <tr><td>Respiración diafragmática</td><td class="num">2′</td><td class="num">sin carga</td><td class="num">—</td><td class="num">—</td><td class="num">n/a</td></tr>
+        <tr><td>Orofaríngeos (opcional·AOS)<span class="tag-new">NUEVO</span></td><td class="num">5′</td><td class="num">sin carga</td><td class="num">validar c/médico</td><td class="num">—</td><td class="num">n/a</td></tr>
+      </tbody>
+    </table></div>
+    <p style="font-size:12px;color:var(--fg3);margin-top:-4px">ppm es referencia; con Samexid el número sube y no es confiable — talk test manda.</p>
+
+    <h4 style="font-family:var(--disp);font-size:14.5px;margin:22px 0 8px;display:flex;align-items:center;gap:8px"><span class="pill amber">S4</span> Fuerza Base B</h4>
+    <div class="tw"><table>
+      <thead><tr><th>Ejercicio</th><th>Series</th><th>Peso sugerido</th><th>RIR</th><th>Descanso</th><th>ppm ref</th></tr></thead>
+      <tbody>
+        <tr><td>Remo máquina neutro (A1)</td><td class="num">3×8</td><td class="num">58 kg</td><td class="num">3</td><td class="num" rowspan="2" style="vertical-align:middle">superserie · 90s tras el par</td><td class="num">115–135</td></tr>
+        <tr><td>Press pecho inclinado mancuerna (A2)</td><td class="num">3×8</td><td class="num">autoregula</td><td class="num">3</td><td class="num">115–135</td></tr>
+        <tr><td>Face pull / jalón cerrado (B1)</td><td class="num">3×12</td><td class="num">polea liviana</td><td class="num">2–3</td><td class="num" rowspan="2" style="vertical-align:middle">superserie · 60s tras el par</td><td class="num">110–125</td></tr>
+        <tr><td>Elevaciones laterales (B2)</td><td class="num">3×12</td><td class="num">9 kg</td><td class="num">2–3</td><td class="num">110–125</td></tr>
+        <tr><td>Back extension (bisagra cadera)</td><td class="num">3×12</td><td class="num">55 kg</td><td class="num">2–3</td><td class="num">90s</td><td class="num">115–130</td></tr>
+        <tr><td>Suitcase carry (anti-flexión lat.)</td><td class="num">2×30 m /lado</td><td class="num">autoregula</td><td class="num">n/a</td><td class="num">60s</td><td class="num">115–130</td></tr>
+        <tr><td>Finisher Z2 (opcional)<span class="tag-new">NUEVO</span></td><td class="num">1×8–10′</td><td class="num">—</td><td class="num">n/a</td><td class="num">continuo</td><td class="num">109–127</td></tr>
+      </tbody>
+    </table></div>
+
+    <h4 style="font-family:var(--disp);font-size:14.5px;margin:22px 0 8px;display:flex;align-items:center;gap:8px"><span class="pill amber">S5</span> Densidad EMOM <span style="font-weight:400;color:var(--fg3);font-size:12px">— 16–20′, cada minuto una estación</span></h4>
+    <div class="tw"><table>
+      <thead><tr><th>Ejercicio</th><th>Reps</th><th>Peso sugerido</th><th>RIR</th><th>Descanso</th><th>ppm ref</th></tr></thead>
+      <tbody>
+        <tr><td>Goblet squat (min 1)</td><td class="num">×10</td><td class="num">KB 12–16 kg</td><td class="num">~3</td><td class="num" rowspan="4" style="vertical-align:middle">resto del minuto (formato EMOM)</td><td class="num">130–150</td></tr>
+        <tr><td>Flexión, banda si necesita (min 2)</td><td class="num">×8–12</td><td class="num">—</td><td class="num">~3</td><td class="num">130–150</td></tr>
+        <tr><td>Remo mancuerna (min 3)</td><td class="num">×10 /lado</td><td class="num">autoregula</td><td class="num">~3</td><td class="num">130–150</td></tr>
+        <tr><td>KB swing (min 4)</td><td class="num">×12</td><td class="num">12–16 kg</td><td class="num">~3</td><td class="num">130–150</td></tr>
+        <tr><td>Finisher Z2 (opcional)<span class="tag-new">NUEVO</span></td><td class="num">1×8–10′</td><td class="num">—</td><td class="num">n/a</td><td class="num">continuo</td><td class="num">109–127</td></tr>
+      </tbody>
+    </table></div>
+
+    <h4 style="font-family:var(--disp);font-size:14.5px;margin:22px 0 8px;display:flex;align-items:center;gap:8px"><span class="pill indigo">S6</span> Cadena Posterior + Reintro<span class="tag-re">REINTRO</span></h4>
+    <div class="tw"><table>
+      <thead><tr><th>Ejercicio</th><th>Series</th><th>Peso sugerido</th><th>RIR</th><th>Descanso</th><th>ppm ref</th></tr></thead>
+      <tbody>
+        <tr><td>Trap-bar (peso muerto hexagonal)</td><td class="num">3×6</td><td class="num">MUY ligero (Q1: goblet)</td><td class="num">4+</td><td class="num">90–120s</td><td class="num">110–125</td></tr>
+        <tr><td>Goblet squat profundo tempo 3-1-1</td><td class="num">3×10</td><td class="num">KB 12–16 kg</td><td class="num">3</td><td class="num">75–90s</td><td class="num">115–130</td></tr>
+        <tr><td>Curl femoral prono</td><td class="num">3×10</td><td class="num">38 kg</td><td class="num">3</td><td class="num">75–90s</td><td class="num">110–125</td></tr>
+        <tr><td>RDL barra ligero, técnico</td><td class="num">2×10</td><td class="num">MUY ligero (Q2+)</td><td class="num">4+</td><td class="num">90–120s</td><td class="num">110–125</td></tr>
+        <tr><td>Side plank</td><td class="num">2×30″ /lado</td><td class="num">corporal</td><td class="num">n/a</td><td class="num">30–45s</td><td class="num">100–115</td></tr>
+      </tbody>
+    </table></div>
+    <p style="font-size:12px;color:var(--fg3);margin-top:-4px">Trap-bar y RDL: gobernados por dolor, no por RIR — 2/10 → bajar escalón · &gt;2 → sustituir · ≥4 → parar. RIR alto (4+) es deliberado: técnica antes que fatiga.</p>
+
+    <h4 style="font-family:var(--disp);font-size:14.5px;margin:22px 0 8px;display:flex;align-items:center;gap:8px"><span class="pill teal">S7</span> Circuito Atlético + Reto</h4>
+    <div class="tw"><table>
+      <thead><tr><th>Ejercicio</th><th>Volumen</th><th>Carga</th><th>Intensidad</th><th>Descanso</th><th>ppm ref</th></tr></thead>
+      <tbody>
+        <tr><td>Trineo / prensa explosiva ligera</td><td class="num">3–4 vueltas · 20m/12</td><td class="num">ligero</td><td class="num">RPE 7–8</td><td class="num">15–20s/estación · 60–90s/vuelta</td><td class="num">140–160</td></tr>
+        <tr><td>Battle rope / bici rápida</td><td class="num">20″</td><td class="num">—</td><td class="num">RPE 7–8, sin sprint máx</td><td class="num">mismo desc. de vuelta</td><td class="num">140–160</td></tr>
+        <tr><td>Med ball chest pass</td><td class="num">×10</td><td class="num">—</td><td class="num">RPE 7–8</td><td class="num">mismo desc. de vuelta</td><td class="num">135–155</td></tr>
+        <tr><td>Acarreo</td><td class="num">30 m</td><td class="num">autoregula</td><td class="num">RPE 7 sostenido</td><td class="num">60–90s entre vueltas</td><td class="num">125–145</td></tr>
+      </tbody>
+    </table></div>
+    <p style="font-size:12px;color:var(--fg3);margin-top:-4px">S7 usa RPE, no RIR — por diseño v9: intensidad acotada mientras la AOS no esté tratada, sin sprints máximos.</p>
+  </div>
+</section>
+
+<!-- 06 NEAT -->
+<section id="neat">
+  <div class="wrap">
+    <div class="shead"><span class="snum">06</span><h2>NEAT · el gasto que no cuesta recuperación</h2></div>
+    <div class="grid2">
+      <div class="card amber">
+        <h4>Protocolo de pasos (banda Huawei)</h4>
+        <ul style="margin:0">
+          <li><strong>Semana 1:</strong> solo medir. Promedio diario = tu baseline. No cambies nada.</li>
+          <li><strong>Semana 2+:</strong> baseline <strong>+1500–2000 pasos/día</strong>. Es un piso diario, no una sesión.</li>
+          <li><strong>Techo útil:</strong> ~8500–9500/día. Más no aporta proporcionalmente y roba tiempo.</li>
+          <li>Formas de bajo costo: caminar en llamadas, estacionar lejos, 10′ post-almuerzo (además ayuda a la glicemia sin metformina <span class="n n2">N2</span>).</li>
+        </ul>
+      </div>
+      <div class="card teal">
+        <h4>Por qué esto y no más HIIT</h4>
+        <p style="margin:0;font-size:13.5px"><span class="n n2">N2</span> NEAT + finishers Z2 suman ~150–300 kcal/día de gasto con costo de recuperación ~nulo y riesgo lumbar cero. El HIIT extra, con tu carga hipóxica nocturna elevada, cobra en la moneda que no tienes: recuperación. El gobernador de tendencia del tracker (media 7d; alerta &gt;0.7 kg/sem) regula el total — gobernamos por resultado, no por cálculo de gasto que sería precisión falsa.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 07 RECUPERACION -->
+<section id="recuperacion">
+  <div class="wrap">
+    <div class="shead"><span class="snum">07</span><h2>Sueño y recuperación · la compuerta del bloque</h2></div>
+    <div class="card indigo">
+      <h4>Lo que tu informe recomienda y toca al entrenamiento <span class="n n1">N1</span></h4>
+      <p style="margin:0 0 8px">Tu informe (§6.2) dice que la terapia posicional <strong>"no es secundaria"</strong> en tu caso: dormir de lado izquierdo llevó el IAH de 33.4 a 1.6. Y pone CPAP/APAP como primera línea (§6.1). Decidir eso es de tu médico — pero para este plan la consecuencia es directa: <strong>cada mejora de sueño compra capacidad de entrenamiento y acelera la pérdida de grasa</strong> (el mal sueño empuja hambre y frena la lipólisis <span class="n n2">N2</span>). Es la intervención con mejor razón costo/beneficio de todo el sistema, y no ocurre en el gimnasio.</p>
+    </div>
+    <h3>Gobernadores (actualizados)</h3>
+    <div class="tw">
+    <table>
+      <thead><tr><th>Señal</th><th>Acción</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Lumbar 2/10 · &gt;2 · ≥4</strong></td><td>Bajar escalón · sustituir patrón · terminar sesión (semáforo del tracker)</td></tr>
+        <tr><td><strong>Noche mala</strong> (&lt;6 h o muy fragmentada)</td><td>La sesión del día = S3 o <strong>versión mínima</strong>; sin intervalos ni finisher</td></tr>
+        <tr><td><strong>Sueño &lt;6 h × 3+ noches</strong></td><td>Semana sin intervalos; +carbohidrato peri-entreno; prioridad dormir</td></tr>
+        <tr><td><strong>FC reposo ≫ base medicada</strong></td><td>Reducir intensidad, +1 día descanso (sin umbral absoluto con Samexid)</td></tr>
+        <tr><td><strong>Peso baja &gt;0.7 kg/sem</strong> (media 7d)</td><td>+150 kcal carbos — el tracker lo alerta solo</td></tr>
+        <tr><td><strong>RIR &lt;0.5 en 3 series</strong></td><td>Reducir carga 5–10% en ese ejercicio</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="card">
+      <h4>Versión mínima de cualquier sesión <span class="n n2">N2</span></h4>
+      <p style="margin:0;font-size:13.5px">Para días de fricción alta: <strong>compuesto principal 2 series + 8′ de Z2. Fin.</strong> Cuenta como sesión hecha en el tracker. La regla existe porque 80% de adherencia en 12 semanas le gana a cualquier semana perfecta seguida de abandono.</p>
+    </div>
+    <h3>Panel médico consolidado (una visita)</h3>
+    <ul>
+      <li><strong>Sangre:</strong> AST + ALT + CK (el 238 sigue sin re-chequear) · glicemia ayunas + HbA1c (sin metformina)</li>
+      <li><strong>Presión arterial y FC reposo</strong> bajo lisdexanfetamina — tu informe de apnea también lo sugiere</li>
+      <li><strong>AOS:</strong> definir con tu médico CPAP/APAP y/o terapia posicional verificada (tu informe, §7) · kinesiólogo para bisagra cargada sigue recomendado</li>
+    </ul>
+  </div>
+</section>
+
+<!-- 08 NUTRICION -->
+<section id="nutricion">
+  <div class="wrap">
+    <div class="shead"><span class="snum">08</span><h2>Nutrición · interfaz (sin cambios de fondo)</h2></div>
+    <p>El <strong>Panel de Nutrición v2</strong> sigue siendo la autoridad: déficit ≤300, proteína 1.7 g/kg (150–160 g), carbohidrato por tipo de sesión, TDEE provisional hasta 2 semanas de peso real. <span class="n n2">N2</span> Único matiz v9: el objetivo peso-primario <strong>no se persigue comiendo menos</strong> (el cap queda), se persigue <strong>gastando más barato</strong> (NEAT + finishers) y dejando que el gobernador de 0.7 kg/sem regule. Si en la re-evaluación de sem 6 el sueño ya está tratado y la tendencia es &lt;0.3 kg/sem, ahí — y solo ahí — se conversa subir el déficit con el panel de nutrición. <span class="n n3">N3</span></p>
+    <p style="font-size:13px">La creatina sigue siendo la decisión abierta: en déficit + reentrada, reanudarla protege masa magra (recomendación de ambos planes).</p>
+  </div>
+</section>
+
+<!-- 09 TRACKER -->
+<section id="tracker">
+  <div class="wrap">
+    <div class="shead"><span class="snum">09</span><h2>Tracker y JSON del plan</h2></div>
+    <ul class="teal">
+      <li><strong>plan-sesiones-v9.json</strong> = definición canónica del plan (sesiones, fases, retos, metadatos con la fundamentación). Portátil a tu PKM.</li>
+      <li>El tracker ahora <strong>importa/exporta el plan en JSON</strong> (Historial → "Importar plan"). Valida el schema antes de aplicar; si es inválido, no toca nada.</li>
+      <li>El tracker ya trae v9 por defecto — el import existe para tus iteraciones futuras sin editar HTML.</li>
+      <li><strong>Compatibilidad:</strong> los cambios son append-only; tus sesiones ya registradas se conservan y los ejercicios nuevos aparecen vacíos en registros antiguos (fix defensivo incluido).</li>
+    </ul>
+  </div>
+</section>
+
+<div class="wrap">
+  <div class="foot">
+    <p class="mono">Plan v9 · pérdida de peso primaria · integra informe AOS (poligrafía feb-2025) · supersede v8 · sincronizado con Nutrición v2 · 2026-06-20</p>
+    <p>Registro sesión a sesión (fecha, horas, series, reps, RIR, ppm, RPE, dolor lumbar) → <strong>tracker-regreso-gimnasio.html</strong> · plan canónico en JSON → <strong>plan-sesiones-v9.json</strong>.</p>
+    <div class="disc">Niveles epistémicos: <span class="n n1">N1</span> hecho observable · <span class="n n2">N2</span> inferencia razonable (supuesto explícito) · <span class="n n3">N3</span> especulación. No constituye consejo médico. CPAP, terapia posicional, cirugías y manejo de AOS son decisiones con tu médico tratante; este documento solo traduce las implicaciones de tu informe al diseño del entrenamiento.</div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,139 @@
+{
+  "meta": {
+    "version": "v9.1",
+    "fecha": "2026-07-01",
+    "supersede": "v9",
+    "objetivo_primario": "perdida_de_peso",
+    "objetivos_secundarios": ["preservar_masa_magra", "base_aerobica_Z2", "marcadores_atleticos_como_subproducto"],
+    "fuente_clinica": "Informe integrado AOS/via aerea (poligrafia 2025-02-17): IAH total 15.5/h; supino 33.4/h; lateral izq 1.6/h; carga hipoxica 36.4 %min/h; IMC 30",
+    "cambio_v9_1": "N1: se agrega a CADA ejercicio: series, peso sugerido, RIR, ppm de referencia y descanso entre series. Antes vivian solo como texto general de fase, no por ejercicio.",
+    "nota_ppm": "N2: ppm = rango DE REFERENCIA por tipo de esfuerzo, no objetivo estricto. Con lisdexanfetamina el numero sube y no es confiable como gobernador -> el gobernador real es RIR/RPE/talk test. ppm queda como dato de contexto.",
+    "nota_peso": "Donde no hay dato real ancla (xlsx abril 2026), el campo de peso dice 'autoregula': primera serie a criterio, ajustar por RIR real logrado (sobran 5+ reps -> sube 10-15%; quedan 3-4 -> quedate; <3 -> baja 5-10%). No se inventan numeros sin dato real.",
+    "campos_ex": "tgt = texto que se renderiza en el tracker (fuente de verdad visual). reps/kg/rir/rest_s/ppm_ref = mismos datos en estructura, para lectura/parsing fuera del tracker.",
+    "implicaciones_entrenamiento": [
+      "N1: AOS moderada NO tratada + carga hipoxica elevada = recuperacion objetivamente limitada",
+      "N2: intervalos maximos congelados hasta tratamiento AOS en marcha (CPAP o posicional verificada); intervalos cortos RPE 7-8 se mantienen",
+      "N2: gasto adicional via NEAT (pasos) + finishers Z2 opcionales, costo de recuperacion ~nulo",
+      "N2: entrenar manana/mediodia; evitar alta intensidad tarde-noche (higiene sueno con AOS + estimulante)",
+      "N2: miofuncional orofaringeo opcional en S3 (coadyuvante segun informe; validar con medico)"
+    ],
+    "gobernadores_sin_cambio": ["lumbar 2/10 modificar · >2 sustituir · >=4 parar", "RIR autoregulacion", "talk test en Z2 (ppm referencia)", "FC reposo vs base medicada", "peso baja >0.7 kg/sem -> +150 kcal"],
+    "regla_finisher": "Solo si la sesion va en <50 min al terminar el trabajo principal. Si vas en >=50, se salta. Binario.",
+    "neat": "Semana 1 = medir baseline pasos (banda). Luego +1500-2000/dia sobre baseline. Techo util ~8500-9500/dia."
+  },
+  "sessions": {
+    "S1": { "name": "Fuerza Base A", "type": "amber", "badge": "Fuerza", "focus": "Patrones primarios · series rectas",
+      "ex": [
+        { "n": "Prensa 45°", "t": "fuerza", "sets": 3, "kg": 110, "reps": "8", "rir": "3-4", "rest_s": "100-120", "ppm_ref": "115-135",
+          "tgt": "3×8 · 110 kg · RIR 3–4 · desc 100–120s · ppm ref 115–135" },
+        { "n": "Press pecho máquina", "t": "fuerza", "sets": 3, "kg": 48, "reps": "8", "rir": "3-4", "rest_s": "90-120", "ppm_ref": "115-135",
+          "tgt": "3×8 · 48 kg · RIR 3–4 · desc 90–120s · ppm ref 115–135" },
+        { "n": "Jalón al pecho", "t": "fuerza", "sets": 3, "kg": 46, "reps": "8-10", "rir": "3-4", "rest_s": "90-120", "ppm_ref": "115-130",
+          "tgt": "3×8–10 · 46 kg · RIR 3–4 · desc 90–120s · ppm ref 115–130" },
+        { "n": "Hip thrust máquina", "t": "fuerza", "sets": 3, "kg": 42, "reps": "10", "rir": "3", "rest_s": "90", "ppm_ref": "115-130",
+          "tgt": "3×10 · 42 kg · RIR 3 · desc 90s · ppm ref 115–130" },
+        { "n": "Pallof press (anti-rotación)", "t": "fuerza", "sets": 2, "kg": "banda o polea", "reps": "10 /lado", "rir": "3", "rest_s": "45-60", "ppm_ref": "105-120",
+          "tgt": "2×10 /lado · banda o polea · RIR 3 · desc 45–60s · ppm ref 105–120" },
+        { "n": "Finisher Z2 (opcional)", "t": "cardio", "sets": 1, "kg": null, "reps": "8-10 min", "rir": "n/a", "rest_s": "n/a (continuo)", "ppm_ref": "109-127",
+          "tgt": "8–10 min bici/caminata · solo si vas <50 min · talk test · ppm ref 109–127" }
+      ] },
+    "S2": { "name": "Potencia + Acarreos", "type": "amber", "badge": "Atlético", "focus": "Bisagra potente · piernas · agarre · core",
+      "ex": [
+        { "n": "KB swing (control)", "t": "fuerza", "sets": 5, "kg": "12-16", "reps": "8", "rir": "3 (técnica>fatiga)", "rest_s": "60-90", "ppm_ref": "125-145",
+          "tgt": "5×8 · 12–16 kg · RIR 3 (técnica>fatiga) · desc 60–90s · ppm ref 125–145" },
+        { "n": "Step-up con carga", "t": "fuerza", "sets": 3, "kg": "autoregula", "reps": "8 /lado", "rir": "3", "rest_s": "60-90", "ppm_ref": "120-140",
+          "tgt": "3×8 /lado · mancuerna, autoregula serie 1 · RIR 3 · desc 60–90s · ppm ref 120–140" },
+        { "n": "Press militar máquina", "t": "fuerza", "sets": 3, "kg": 30, "reps": "8", "rir": "3-4", "rest_s": "90-120", "ppm_ref": "115-135",
+          "tgt": "3×8 · 30 kg · RIR 3–4 · desc 90–120s · ppm ref 115–135" },
+        { "n": "Farmer carry", "t": "carry", "sets": 3, "kg": "autoregula, pesado", "reps": "30 m", "rir": "n/a", "rest_s": "60-90", "ppm_ref": "120-140",
+          "tgt": "3×30 m · pesado, autoregula · desc 60–90s · ppm ref 120–140" },
+        { "n": "Dead bug", "t": "mov", "sets": 2, "kg": "peso corporal", "reps": "10", "rir": "n/a (control motor)", "rest_s": "45", "ppm_ref": "100-115",
+          "tgt": "2×10 · peso corporal, control motor · desc 45s · ppm ref 100–115" },
+        { "n": "Finisher Z2 (opcional)", "t": "cardio", "sets": 1, "kg": null, "reps": "8-10 min", "rir": "n/a", "rest_s": "n/a (continuo)", "ppm_ref": "109-127",
+          "tgt": "8–10 min · solo si vas <50 min · talk test · ppm ref 109–127" }
+      ] },
+    "S3": { "name": "Cardio Z2 + Movilidad", "type": "teal", "badge": "Acond.", "focus": "Día fácil · talk test (ppm solo referencia)",
+      "ex": [
+        { "n": "Bici o remo Z2", "t": "cardio", "sets": 1, "kg": null, "reps": "15-35 min", "rir": "n/a", "rest_s": "n/a (continuo)", "ppm_ref": "109-127",
+          "tgt": "15→35 min · frase completa sin jadear · ppm ref 109–127 (talk test manda, no el número)" },
+        { "n": "Movilidad cadera 90/90 + flexor", "t": "mov", "sets": 1, "kg": null, "reps": "5 min", "rir": "n/a", "rest_s": "n/a", "ppm_ref": "n/a",
+          "tgt": "5 min · sin carga" },
+        { "n": "Movilidad torácica", "t": "mov", "sets": 1, "kg": null, "reps": "3 min", "rir": "n/a", "rest_s": "n/a", "ppm_ref": "n/a",
+          "tgt": "3 min · sin carga" },
+        { "n": "Respiración diafragmática", "t": "mov", "sets": 1, "kg": null, "reps": "2 min", "rir": "n/a", "rest_s": "n/a", "ppm_ref": "n/a",
+          "tgt": "2 min · sin carga" },
+        { "n": "Orofaríngeos (opcional · AOS)", "t": "mov", "sets": 1, "kg": null, "reps": "5 min", "rir": "n/a", "rest_s": "n/a", "ppm_ref": "n/a",
+          "tgt": "5 min · coadyuvante según tu informe · validar con médico" }
+      ] },
+    "S4": { "name": "Fuerza Base B", "type": "amber", "badge": "Fuerza", "focus": "Empuje/tracción denso · superseries",
+      "ex": [
+        { "n": "Remo máquina neutro (A1)", "t": "fuerza", "sets": 3, "kg": 58, "reps": "8", "rir": "3", "rest_s": "0 a A2, 90 tras el par", "ppm_ref": "115-135",
+          "tgt": "3×8 · 58 kg · RIR 3 · superserie c/A2, desc 90s tras el par · ppm ref 115–135" },
+        { "n": "Press pecho inclinado mancuerna (A2)", "t": "fuerza", "sets": 3, "kg": "autoregula", "reps": "8", "rir": "3", "rest_s": "90 tras el par (con A1)", "ppm_ref": "115-135",
+          "tgt": "3×8 · mancuerna, autoregula serie 1 · RIR 3 · superserie c/A1 · ppm ref 115–135" },
+        { "n": "Face pull / jalón cerrado (B1)", "t": "fuerza", "sets": 3, "kg": "polea liviana", "reps": "12", "rir": "2-3", "rest_s": "0 a B2, 60 tras el par", "ppm_ref": "110-125",
+          "tgt": "3×12 · polea liviana · RIR 2–3 · superserie c/B2, desc 60s tras el par · ppm ref 110–125" },
+        { "n": "Elevaciones laterales (B2)", "t": "fuerza", "sets": 3, "kg": 9, "reps": "12", "rir": "2-3", "rest_s": "60 tras el par (con B1)", "ppm_ref": "110-125",
+          "tgt": "3×12 · 9 kg · RIR 2–3 · superserie c/B1 · ppm ref 110–125" },
+        { "n": "Back extension (bisagra cadera)", "t": "fuerza", "sets": 3, "kg": 55, "reps": "12", "rir": "2-3 (técnica>carga)", "rest_s": "90", "ppm_ref": "115-130",
+          "tgt": "3×12 · 55 kg · RIR 2–3 (técnica>carga) · desc 90s · ppm ref 115–130" },
+        { "n": "Suitcase carry (anti-flexión lat.)", "t": "carry", "sets": 2, "kg": "autoregula", "reps": "30 m /lado", "rir": "n/a", "rest_s": "60", "ppm_ref": "115-130",
+          "tgt": "2×30 m /lado · autoregula · desc 60s · ppm ref 115–130" },
+        { "n": "Finisher Z2 (opcional)", "t": "cardio", "sets": 1, "kg": null, "reps": "8-10 min", "rir": "n/a", "rest_s": "n/a (continuo)", "ppm_ref": "109-127",
+          "tgt": "8–10 min · solo si vas <50 min · talk test · ppm ref 109–127" }
+      ] },
+    "S5": { "name": "Densidad EMOM", "type": "amber", "badge": "Metab.", "focus": "EMOM 16-20 min · cada minuto una estación",
+      "ex": [
+        { "n": "Goblet squat (min 1)", "t": "fuerza", "sets": 4, "kg": "12-16", "reps": "10", "rir": "~3 dentro del minuto", "rest_s": "resto del minuto", "ppm_ref": "130-150",
+          "tgt": "×10 · KB 12–16 kg · RIR~3 dentro del minuto · desc = resto del minuto · ppm ref 130–150" },
+        { "n": "Flexión (banda si necesita) (min 2)", "t": "fuerza", "sets": 4, "kg": "banda si falta fuerza", "reps": "8-12", "rir": "~3", "rest_s": "resto del minuto", "ppm_ref": "130-150",
+          "tgt": "×8–12 · RIR~3 · desc = resto del minuto · ppm ref 130–150" },
+        { "n": "Remo mancuerna (min 3)", "t": "fuerza", "sets": 4, "kg": "autoregula", "reps": "10 /lado", "rir": "~3", "rest_s": "resto del minuto", "ppm_ref": "130-150",
+          "tgt": "×10 /lado · autoregula · RIR~3 · desc = resto del minuto · ppm ref 130–150" },
+        { "n": "KB swing (min 4)", "t": "fuerza", "sets": 4, "kg": "12-16", "reps": "12", "rir": "~3", "rest_s": "resto del minuto", "ppm_ref": "130-150",
+          "tgt": "×12 · 12–16 kg · RIR~3 · desc = resto del minuto · ppm ref 130–150" },
+        { "n": "Finisher Z2 (opcional)", "t": "cardio", "sets": 1, "kg": null, "reps": "8-10 min", "rir": "n/a", "rest_s": "n/a (continuo)", "ppm_ref": "109-127",
+          "tgt": "8–10 min · solo si vas <50 min · talk test · ppm ref 109–127" }
+      ] },
+    "S6": { "name": "Cadena Posterior + Reintro", "type": "indigo", "badge": "Reintro", "focus": "Exposición graduada · gobernada por dolor 2/10",
+      "ex": [
+        { "n": "Trap-bar (peso muerto hexagonal)", "t": "fuerza", "sets": 3, "kg": "MUY ligero (Q1: usar goblet)", "reps": "6", "rir": "4+ nunca al límite", "rest_s": "90-120", "ppm_ref": "110-125", "re": true,
+          "tgt": "3×6 · MUY ligero (Q1: usar goblet) · RIR 4+ nunca al límite · desc 90–120s · ppm ref 110–125 · dolor 2/10=bajar escalón" },
+        { "n": "Goblet squat profundo tempo 3-1-1", "t": "fuerza", "sets": 3, "kg": "12-16", "reps": "10", "rir": "3", "rest_s": "75-90", "ppm_ref": "115-130",
+          "tgt": "3×10 · KB 12–16 kg · RIR 3 · desc 75–90s · ppm ref 115–130" },
+        { "n": "Curl femoral prono", "t": "fuerza", "sets": 3, "kg": 38, "reps": "10", "rir": "3", "rest_s": "75-90", "ppm_ref": "110-125",
+          "tgt": "3×10 · 38 kg · RIR 3 · desc 75–90s · ppm ref 110–125" },
+        { "n": "RDL barra ligero, técnico", "t": "fuerza", "sets": 2, "kg": "MUY ligero (Q2+)", "reps": "10", "rir": "4+", "rest_s": "90-120", "ppm_ref": "110-125", "re": true,
+          "tgt": "2×10 · MUY ligero, técnico (Q2+) · RIR 4+ · desc 90–120s · ppm ref 110–125 · dolor 2/10=bajar escalón" },
+        { "n": "Side plank", "t": "mov", "sets": 2, "kg": "peso corporal", "reps": "30 s /lado", "rir": "n/a", "rest_s": "30-45", "ppm_ref": "100-115",
+          "tgt": "2×30 s /lado · peso corporal · desc 30–45s · ppm ref 100–115" }
+      ] },
+    "S7": { "name": "Circuito Atlético + Reto", "type": "teal", "badge": "Acond.", "focus": "3-4 vueltas continuas · RPE 7-8, sin máximos (AOS sin tratar)",
+      "ex": [
+        { "n": "Trineo / prensa explosiva ligera", "t": "circuit", "sets": 1, "kg": "ligero", "reps": "3-4 vueltas · 20 m / 12", "rir": "RPE 7-8", "rest_s": "15-20 entre estaciones, 60-90 entre vueltas", "ppm_ref": "140-160",
+          "tgt": "3–4 vueltas · 20 m / 12 · ligero, RPE 7–8 · desc 15–20s entre estaciones, 60–90s entre vueltas · ppm ref 140–160" },
+        { "n": "Battle rope / bici rápida", "t": "circuit", "sets": 1, "kg": null, "reps": "20 s", "rir": "RPE 7-8, no sprint máximo", "rest_s": "mismo desc de vuelta", "ppm_ref": "140-160",
+          "tgt": "20 s · RPE 7–8, no sprint máximo · mismo desc de vuelta · ppm ref 140–160" },
+        { "n": "Med ball chest pass", "t": "circuit", "sets": 1, "kg": null, "reps": "10", "rir": "RPE 7-8", "rest_s": "mismo desc de vuelta", "ppm_ref": "135-155",
+          "tgt": "×10 · RPE 7–8 · mismo desc · ppm ref 135–155" },
+        { "n": "Acarreo", "t": "carry", "sets": 1, "kg": "autoregula", "reps": "30 m", "rir": "RPE 7 sostenido", "rest_s": "60-90 entre vueltas", "ppm_ref": "125-145",
+          "tgt": "30 m · RPE 7 sostenido · desc 60–90s entre vueltas · ppm ref 125–145" }
+      ] }
+  },
+  "phases": {
+    "1": { "n": "Reentrada", "s": "RIR 3-4 · ~60% de abril" },
+    "2": { "n": "Construcción 1", "s": "RIR 2-3 · ~70-75% · entra trap-bar" },
+    "3": { "n": "Construcción 2", "s": "RIR 2 · ~80% · sem 6 descarga + re-evaluación" },
+    "4": { "n": "Densidad", "s": "RIR 1-2 · ~85% · densidad↑ · back squat técnico · intervalos cortos RPE 7-8" },
+    "5": { "n": "Densidad + carries", "s": "RIR 1-2 · ~90% · gasto vía densidad/carries; máximos solo con AOS tratada" },
+    "6": { "n": "Consolidar + retest", "s": "sem 12 descarga + retest + medición dura (peso/cintura)" }
+  },
+  "challenges": {
+    "1": "Plancha frontal máxima (tiempo)",
+    "2": "Flexiones máximas en una serie",
+    "3": "Test bici 2 km (tiempo)",
+    "4": "Dominadas asistidas / negativas de calidad (reps)",
+    "5": "Farmer carry: distancia máx con carga fija",
+    "6": "RETEST: dominada estricta + flexiones máx + cintura/peso"
+  }
+}

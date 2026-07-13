@@ -1,0 +1,18 @@
+{
+  "name": "Tracker Regreso al Gimnasio",
+  "short_name": "Gym Tracker",
+  "description": "Tracker personal de entrenamiento con plan de sesiones, registro de peso, NEAT y respaldo offline.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0E1620",
+  "theme_color": "#0E1620",
+  "icons": [
+    {
+      "src": "pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
