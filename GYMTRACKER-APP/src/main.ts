@@ -16,6 +16,7 @@ import { initFirebaseSync, onSyncStatus } from './db/firebase.ts';
 import { initAudioOnGesture, playTimerDone, playPip } from './audio.ts';
 import { connectHR, disconnectHR, onHeartRate, isHRConnected, hrZoneClass, getCurrentPpm } from './health/heartRate.ts';
 import { isHealthConnectAvailable, requestHealthConnectPermission, syncHealthConnect } from './health/healthConnect.ts';
+import { saveTimer, loadTimer, clearTimer, remainingSecs } from './timerStore.ts';
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { LocalNotifications } from '@capacitor/local-notifications';
@@ -71,14 +72,20 @@ function releaseWakeLock(): void {
 }
 
 // ── Rest Timer ───────────────────────────────────────────────────────────────
+// La verdad del timer es un timestamp absoluto (endsAt) persistido en
+// localStorage, no un contador en memoria: así sobrevive a que Android
+// throttlee el setInterval en segundo plano, a minimizar la app o a recargar.
 
 function startRestTimer(secs: number): void {
   stopTimer();
-  timerSecs = secs;
   timerTotal = secs;
   timerNotifId = Date.now() % 100000;
+  const endsAt = Date.now() + secs * 1000;
+  saveTimer({ endsAt, total: secs });
+
   const chip = $<HTMLElement>('#timerChip');
   chip.classList.remove('hide');
+  timerSecs = secs;
   updateTimerUI();
 
   if (Capacitor.isNativePlatform()) {
@@ -87,13 +94,14 @@ function startRestTimer(secs: number): void {
         id: timerNotifId,
         title: 'Descanso terminado',
         body: 'Hora de la siguiente serie',
-        schedule: { at: new Date(Date.now() + secs * 1000) }
+        schedule: { at: new Date(endsAt) }
       }]
     }).catch(() => {});
   }
 
   timerInterval = setInterval(() => {
-    timerSecs--;
+    const t = loadTimer();
+    timerSecs = t ? remainingSecs(t) : 0;
     if (timerSecs <= 0) {
       stopTimer(true);
       return;
@@ -106,6 +114,7 @@ function stopTimer(done = false): void {
   if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
   const chip = $<HTMLElement>('#timerChip');
   chip.classList.add('hide');
+  clearTimer();
   // Siempre cancela la notificación programada: si el timer terminó en primer
   // plano o el usuario lo canceló, no debe sonar la notificación de fondo
   if (Capacitor.isNativePlatform() && timerNotifId) {
@@ -115,6 +124,41 @@ function stopTimer(done = false): void {
     if (settings.soundEnabled) playTimerDone();
     if (Capacitor.isNativePlatform()) Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {});
   }
+}
+
+// Reconstruye el chip del timer tras minimizar, recargar o reabrir la app.
+function restoreTimer(): void {
+  const t = loadTimer();
+  if (!t) return;
+
+  const remaining = remainingSecs(t);
+  if (remaining <= 0) {
+    // Si venció hace poco (el usuario volvió justo después), avisar igual
+    const secsAgo = (Date.now() - t.endsAt) / 1000;
+    clearTimer();
+    if (secsAgo < 60) {
+      if (settings.soundEnabled) playTimerDone();
+      toast('Descanso terminado');
+    }
+    return;
+  }
+
+  timerTotal = t.total;
+  timerSecs = remaining;
+  const chip = $<HTMLElement>('#timerChip');
+  chip.classList.remove('hide');
+  updateTimerUI();
+
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    const cur = loadTimer();
+    timerSecs = cur ? remainingSecs(cur) : 0;
+    if (timerSecs <= 0) {
+      stopTimer(true);
+      return;
+    }
+    updateTimerUI();
+  }, 1000);
 }
 
 function updateTimerUI(): void {
@@ -1068,6 +1112,11 @@ async function init(): Promise<void> {
   await checkOnboarding();
   await renderDash();
   showView('dash');
+  restoreTimer();
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') restoreTimer();
+  });
 
   // HC auto-sync on native
   if (Capacitor.isNativePlatform() && settings.hcEnabled) {
